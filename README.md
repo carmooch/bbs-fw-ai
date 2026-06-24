@@ -1,3 +1,26 @@
+# bbs-fw-ai
+
+> ⚠️ **Experimental fork — do not flash this to a real controller.** Nothing here has been
+> bench-tested or ride-tested. Treat every build from this repo as unverified until a release
+> explicitly says otherwise.
+
+This is an AI-assisted research/experimentation fork of
+[danielnilsson9/bbs-fw](https://github.com/danielnilsson9/bbs-fw), the open-source firmware for
+the Bafang BBSHD/BBS02 and TongSheng TSDZ2 e-bike motor controllers. I'm using it to explore
+AI-assisted firmware development in the open — building real features with Claude on top of an
+established embedded C codebase, documenting the process, and being upfront about what was
+AI-written versus hand-written.
+
+The goal isn't "more power" — bbs-fw already runs the BBSHD past its stock limits. It's making
+the same hardware feel like a more expensive ebike, with better tooling around install, tuning,
+and diagnostics. The full plan, including an honest accounting of what's actually possible given
+the hardware (and what isn't), is in [ROADMAP.md](ROADMAP.md).
+
+Everything below this point is the original bbs-fw README, describing the upstream project this
+fork is based on.
+
+---
+
 # BBSHD/BBS02/TSDZ2 Open Source Firmware
 
 ![GitHub all releases](https://img.shields.io/github/downloads/danielnilsson9/bbs-fw/total?style=for-the-badge)
@@ -13,7 +36,8 @@ The firmware is also compatible with the TongSheng TSDZ2 controller but requires
 ⚠️ Warning: The firmware should NOT be flashed or configured while the eBike battery is charging!
 
 **Download**  
-https://github.com/danielnilsson9/bbshd-fw/releases
+https://github.com/danielnilsson9/bbshd-fw/releases  
+(links to the upstream project — this fork has no releases of its own yet; see the warning above)
 
 **Install**  
 https://github.com/danielnilsson9/bbs-fw/wiki/Flash-Firmware-(BBS02-&-BBSHD)

@@ -100,7 +100,7 @@ Numbered for stable reference. Effort and risk are subjective rough scales. "Nee
 | 12 | Audible LVC warning beep | Low | Low | No |
 | 13 | Audible watchdog-reset boot beep | Trivial | Low | No |
 | 14 | Status LED blink codes | Medium | Low | No |
-| 34 | Display temperature in Calories or Range field | Trivial | Low | Yes |
+| 34 | ~~Display temperature in Calories or Range field~~ — done | Trivial | Low | Yes |
 | 47 | Status code on display when motor stops unexpectedly | Low | Low | No |
 | 50 | Diagnostic stream mode (cycle telemetry through display field) | Low | Low | Yes |
 | 57 | Ride statistics in EEPROM (top speed, max temp, total Wh) | Medium | Low | Yes |
@@ -151,7 +151,7 @@ Numbered for stable reference. Effort and risk are subjective rough scales. "Nee
 | # | Feature | Effort | Risk | Tool? |
 |---|---|---|---|---|
 | 36 | Configurable thermal limit (raise from 85°C) | Low | **High — hardware** | Yes |
-| 37 | Configurable `MAX_CADENCE_RPM_X10` | Trivial | Low | Yes |
+| 37 | ~~Configurable `MAX_CADENCE_RPM_X10`~~ — done | Trivial | Low | Yes |
 | 38 | Double PAS resolution (sample both edges) | Low | Low | No |
 | 39 | Configurable speed limit ramp interval | Low | Low | Yes |
 | 44 | Cumulative energy delivery warning | Medium | Low | Yes |
@@ -202,7 +202,7 @@ A possible order. Cheaper, safer, higher-impact features earlier; ambitious or r
 
 **Phase 0.5 — Foundation cleanup (added, not in the original plan).** Before building features on top of a codebase, fix the mechanical, zero-hardware-risk defects and code-quality items above so feature work doesn't inherit them. Done in two passes: mechanical fixes with no hardware exposure first (macros, duplicated code, misspellings), then the wire-protocol/EEPROM robustness fixes since they're about to be touched repeatedly by config-version bumps anyway. The remaining defects (timing/motor-control code, the LVC ratchet bug) genuinely need a real controller on a bench, so they're deliberately deferred to be fixed alongside the feature work that already requires hardware testing, rather than in isolation.
 
-**Phase 1 — Smallest viable improvements.** #34 (temperature in repurposed display field) and #37 (configurable max cadence). One config field each, one display change each. Proves the release pipeline works end-to-end and gives early users a reason to try the fork.
+**Phase 1 — Smallest viable improvements.** ~~#34 (temperature in repurposed display field) and #37 (configurable max cadence).~~ Done — `CONFIG_VERSION` bumped to 6, both fields are now config-tool-settable instead of compile-time `#define`s, with per-target defaults preserved. One config field each, one display change each. Proves the release pipeline works end-to-end and gives early users a reason to try the fork. Still untested on real hardware — see the warning at the top of the README.
 
 **Phase 2 — Ride feel quick wins.** #3 (per-level ramp rate), #5 (throttle upper deadband), #21 (wheel size dropdown in the tool). Each is small. Each is visible. Each requires the config tool to be updated, so this phase forces that work too.
 

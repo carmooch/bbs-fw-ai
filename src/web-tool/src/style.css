@@ -1,0 +1,51 @@
+:root {
+	font-family: system-ui, sans-serif;
+	color-scheme: light dark;
+}
+
+body {
+	max-width: 900px;
+	margin: 0 auto;
+	padding: 1rem;
+}
+
+#connection-bar {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+
+#config-form {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 1rem;
+	align-items: start;
+}
+
+fieldset {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 0.5rem 1rem;
+	align-items: center;
+}
+
+fieldset legend {
+	font-weight: bold;
+}
+
+#form-actions {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+}
+
+#validation-errors {
+	grid-column: 1 / -1;
+	color: #b00020;
+}
+
+#not-supported {
+	color: #b00020;
+}

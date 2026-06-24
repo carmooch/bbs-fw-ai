@@ -45,3 +45,27 @@ jobs:
       - name: Run tests
         working-directory: src/firmware/test
         run: make run
+
+  web-tool:
+    name: Web config tool
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/web-tool/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/web-tool
+        run: npm ci
+
+      - name: Run tests
+        working-directory: src/web-tool
+        run: npm test
+
+      - name: Build
+        working-directory: src/web-tool
+        run: npm run build

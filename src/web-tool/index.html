@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>bbs-fw config tool</title>
+  </head>
+  <body>
+    <div id="app">
+      <header id="connection-bar">
+        <button id="connect-btn" type="button">Connect</button>
+        <span id="connection-status">Not connected</span>
+      </header>
+
+      <p id="not-supported" hidden>
+        This browser doesn't support the
+        <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API" target="_blank" rel="noopener">Web Serial API</a>.
+        Try Chrome, Edge, or another Chromium-based browser.
+      </p>
+
+      <main id="config-form" hidden>
+        <fieldset>
+          <legend>Global</legend>
+          <label for="useFreedomUnits">Imperial units</label>
+          <input id="useFreedomUnits" type="checkbox" />
+
+          <label for="maxCurrentAmps">Max Current (A)</label>
+          <input id="maxCurrentAmps" type="number" />
+
+          <label for="currentRampAmpsSecond">Current Ramp (A/s)</label>
+          <input id="currentRampAmpsSecond" type="number" />
+
+          <label for="maxBatteryVolts">Max Battery Voltage (V)</label>
+          <input id="maxBatteryVolts" type="number" step="0.1" />
+
+          <label for="lowCutoffVolts">Low Voltage Cutoff (V)</label>
+          <input id="lowCutoffVolts" type="number" />
+
+          <label for="maxSpeedKph" data-unit-label="speed">Max Speed (km/h)</label>
+          <input id="maxSpeedKph" type="number" />
+        </fieldset>
+
+        <fieldset>
+          <legend>Throttle</legend>
+          <label for="throttleStartMillivolts">Start Voltage (mV)</label>
+          <input id="throttleStartMillivolts" type="number" />
+
+          <label for="throttleEndMillivolts">End Voltage (mV)</label>
+          <input id="throttleEndMillivolts" type="number" />
+
+          <label for="throttleStartPercent">Start Current (%)</label>
+          <input id="throttleStartPercent" type="number" />
+
+          <label for="throttleGlobalSpeedLimit">Global Speed Limit Option</label>
+          <select id="throttleGlobalSpeedLimit">
+            <option value="0">Disabled</option>
+            <option value="1">Enabled</option>
+            <option value="2">Standard Levels</option>
+          </select>
+
+          <label for="throttleGlobalSpeedLimitPercent">Global Speed Limit (%)</label>
+          <input id="throttleGlobalSpeedLimitPercent" type="number" />
+        </fieldset>
+
+        <fieldset>
+          <legend>Pedal Assist</legend>
+          <label for="pasStartDelayPulses">Start Delay (pulses)</label>
+          <input id="pasStartDelayPulses" type="number" />
+
+          <label for="pasStopDelayMilliseconds">Stop Delay (ms)</label>
+          <input id="pasStopDelayMilliseconds" type="number" />
+
+          <label for="pasKeepCurrentPercent">Keep Current (%)</label>
+          <input id="pasKeepCurrentPercent" type="number" />
+
+          <label for="pasKeepCurrentCadenceRpm">Keep Current Cadence (rpm)</label>
+          <input id="pasKeepCurrentCadenceRpm" type="number" />
+        </fieldset>
+
+        <fieldset>
+          <legend>Features</legend>
+          <label for="useSpeedSensor">Speed Sensor</label>
+          <input id="useSpeedSensor" type="checkbox" />
+
+          <label for="useShiftSensor">Shift Sensor</label>
+          <input id="useShiftSensor" type="checkbox" />
+
+          <label for="usePushWalk">Walk Mode</label>
+          <input id="usePushWalk" type="checkbox" />
+
+          <label for="useTemperatureSensor">Temperature Sensor</label>
+          <select id="useTemperatureSensor">
+            <option value="0">Disabled</option>
+            <option value="1">Controller</option>
+            <option value="2">Motor</option>
+            <option value="3">All</option>
+          </select>
+
+          <label for="lightsMode">Lights Mode</label>
+          <select id="lightsMode">
+            <option value="0">Default</option>
+            <option value="1">Disabled</option>
+            <option value="2">Always On</option>
+            <option value="3">Brake Light</option>
+          </select>
+
+          <label for="usePretension">Pretension Chain</label>
+          <input id="usePretension" type="checkbox" />
+
+          <label for="pretensionSpeedCutoffKph" data-unit-label="speed">Pretension Speed Cutoff (km/h)</label>
+          <input id="pretensionSpeedCutoffKph" type="number" />
+        </fieldset>
+
+        <fieldset>
+          <legend>Speed Sensor</legend>
+          <label for="wheelSizeInch">Wheel Size (inch)</label>
+          <input id="wheelSizeInch" type="number" step="0.1" />
+
+          <label for="numWheelSensorSignals">Signals (per rotation)</label>
+          <input id="numWheelSensorSignals" type="number" />
+        </fieldset>
+
+        <fieldset>
+          <legend>Shift Sensor</legend>
+          <label for="shiftInterruptDuration">Shift Interrupt Duration (ms)</label>
+          <input id="shiftInterruptDuration" type="number" />
+
+          <label for="shiftInterruptCurrentThresholdPercent">Shift Current Threshold (%)</label>
+          <input id="shiftInterruptCurrentThresholdPercent" type="number" />
+        </fieldset>
+
+        <fieldset>
+          <legend>Miscellaneous</legend>
+          <label for="walkModeDataDisplay">Walk Mode Data Display</label>
+          <select id="walkModeDataDisplay">
+            <option value="0">Speed</option>
+            <option value="1">Temperature</option>
+            <option value="2">Requested Power</option>
+            <option value="3">Battery Level</option>
+          </select>
+
+          <label for="displayRangeField">Display Range Field</label>
+          <select id="displayRangeField">
+            <option value="0">None</option>
+            <option value="1">Temperature</option>
+            <option value="2">Requested Power</option>
+          </select>
+
+          <label for="maxCadenceRpm">Max Cadence (rpm)</label>
+          <input id="maxCadenceRpm" type="number" />
+        </fieldset>
+
+        <div id="form-actions">
+          <button id="write-btn" type="button">Write to controller</button>
+          <button id="reset-btn" type="button">Reset to factory defaults</button>
+          <span id="write-status"></span>
+        </div>
+
+        <ul id="validation-errors"></ul>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

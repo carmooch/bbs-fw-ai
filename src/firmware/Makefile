@@ -5,6 +5,7 @@ ifeq '$(findstring ;,$(PATH))' ';'
 else
 	UNAME := $(shell uname 2>/dev/null || echo Unknown)
 endif
+$(info TEMP_DEBUG_UNAME=[$(UNAME)])
 
 # Select target controller (normally done from cmd line):
 #TARGET_CONTROLLER = BBSHD

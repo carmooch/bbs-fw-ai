@@ -1,0 +1,270 @@
+﻿BBSHD	Set up job	﻿2026-06-24T09:50:42.5287581Z Current runner version: '2.335.1'
+BBSHD	Set up job	2026-06-24T09:50:42.5314271Z ##[group]Runner Image Provisioner
+BBSHD	Set up job	2026-06-24T09:50:42.5315350Z Hosted Compute Agent
+BBSHD	Set up job	2026-06-24T09:50:42.5316117Z Version: 20260611.554
+BBSHD	Set up job	2026-06-24T09:50:42.5316846Z Commit: 5e0782fdc9014723d3be820dd114dd31555c2bd1
+BBSHD	Set up job	2026-06-24T09:50:42.5317601Z Build Date: 2026-06-11T21:40:46Z
+BBSHD	Set up job	2026-06-24T09:50:42.5318339Z Worker ID: {43c53583-9c52-4eb7-a19e-9b11f6bbb6ac}
+BBSHD	Set up job	2026-06-24T09:50:42.5319026Z Azure Region: westus
+BBSHD	Set up job	2026-06-24T09:50:42.5319905Z ##[endgroup]
+BBSHD	Set up job	2026-06-24T09:50:42.5321437Z ##[group]Operating System
+BBSHD	Set up job	2026-06-24T09:50:42.5322154Z Ubuntu
+BBSHD	Set up job	2026-06-24T09:50:42.5322695Z 24.04.4
+BBSHD	Set up job	2026-06-24T09:50:42.5323198Z LTS
+BBSHD	Set up job	2026-06-24T09:50:42.5323756Z ##[endgroup]
+BBSHD	Set up job	2026-06-24T09:50:42.5324329Z ##[group]Runner Image
+BBSHD	Set up job	2026-06-24T09:50:42.5324903Z Image: ubuntu-24.04
+BBSHD	Set up job	2026-06-24T09:50:42.5325528Z Version: 20260615.205.1
+BBSHD	Set up job	2026-06-24T09:50:42.5326602Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260615.205/images/ubuntu/Ubuntu2404-Readme.md
+BBSHD	Set up job	2026-06-24T09:50:42.5328402Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260615.205
+BBSHD	Set up job	2026-06-24T09:50:42.5329577Z ##[endgroup]
+BBSHD	Set up job	2026-06-24T09:50:42.5330883Z ##[group]GITHUB_TOKEN Permissions
+BBSHD	Set up job	2026-06-24T09:50:42.5333367Z Contents: read
+BBSHD	Set up job	2026-06-24T09:50:42.5334180Z Metadata: read
+BBSHD	Set up job	2026-06-24T09:50:42.5334824Z Packages: read
+BBSHD	Set up job	2026-06-24T09:50:42.5335481Z ##[endgroup]
+BBSHD	Set up job	2026-06-24T09:50:42.5337745Z Secret source: Actions
+BBSHD	Set up job	2026-06-24T09:50:42.5338770Z Prepare workflow directory
+BBSHD	Set up job	2026-06-24T09:50:42.5681897Z Prepare all required actions
+BBSHD	Set up job	2026-06-24T09:50:42.5720953Z Getting action download info
+BBSHD	Set up job	2026-06-24T09:50:42.9582828Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+BBSHD	Set up job	2026-06-24T09:50:43.0593426Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+BBSHD	Set up job	2026-06-24T09:50:43.2773561Z Complete job name: BBSHD
+BBSHD	Run actions/checkout@v4	﻿2026-06-24T09:50:43.3461889Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3471072Z ##[group]Run actions/checkout@v4
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3471906Z with:
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3472417Z   repository: carmooch/bbs-fw-ai
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3477063Z   token: ***
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3477505Z   ssh-strict: true
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3477948Z   ssh-user: git
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3478393Z   persist-credentials: true
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3478915Z   clean: true
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3479639Z   sparse-checkout-cone-mode: true
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3480178Z   fetch-depth: 1
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3480621Z   fetch-tags: false
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3481064Z   show-progress: true
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3481554Z   lfs: false
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3481969Z   submodules: false
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3482462Z   set-safe-directory: true
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.3483377Z ##[endgroup]
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4468807Z Syncing repository: carmooch/bbs-fw-ai
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4471187Z ##[group]Getting Git version info
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4471981Z Working directory is '/home/runner/work/bbs-fw-ai/bbs-fw-ai'
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4473007Z [command]/usr/bin/git version
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4547909Z git version 2.54.0
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4568872Z ##[endgroup]
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4583912Z Temporarily overriding HOME='/home/runner/work/_temp/9795f570-0873-4fd2-bab7-0d00a3126ab5' before making global git config changes
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4585377Z Adding repository directory to the temporary git global config as a safe directory
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4589551Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/bbs-fw-ai/bbs-fw-ai
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4645749Z Deleting the contents of '/home/runner/work/bbs-fw-ai/bbs-fw-ai'
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4650109Z ##[group]Initializing the repository
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4655349Z [command]/usr/bin/git init /home/runner/work/bbs-fw-ai/bbs-fw-ai
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4767617Z hint: Using 'master' as the name for the initial branch. This default branch name
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4769417Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4770973Z hint: to use in all of your new repositories, which will suppress this warning,
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4772305Z hint: call:
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4773031Z hint:
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4773883Z hint: 	git config --global init.defaultBranch <name>
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4774930Z hint:
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4775741Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4777229Z hint: 'development'. The just-created branch can be renamed via this command:
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4778062Z hint:
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4778547Z hint: 	git branch -m <name>
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4779046Z hint:
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4780017Z hint: Disable this message with "git config set advice.defaultBranchName false"
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4781578Z Initialized empty Git repository in /home/runner/work/bbs-fw-ai/bbs-fw-ai/.git/
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4785827Z [command]/usr/bin/git remote add origin https://github.com/carmooch/bbs-fw-ai
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4832977Z ##[endgroup]
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4833794Z ##[group]Disabling automatic garbage collection
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4836464Z [command]/usr/bin/git config --local gc.auto 0
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4866372Z ##[endgroup]
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4867125Z ##[group]Setting up auth
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4873607Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.4906493Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.5274166Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.5306612Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.5526444Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.5557429Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.5780514Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.5817301Z ##[endgroup]
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.5826871Z ##[group]Fetching the repository
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:43.5828355Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +7ccc420514945f6c349f89e02e06736f23f4d67c:refs/remotes/origin/master
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.6934673Z From https://github.com/carmooch/bbs-fw-ai
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.6936314Z  * [new ref]         7ccc420514945f6c349f89e02e06736f23f4d67c -> origin/master
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.6973880Z ##[endgroup]
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.6974998Z ##[group]Determining the checkout info
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.6976382Z ##[endgroup]
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.6983472Z [command]/usr/bin/git sparse-checkout disable
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.7031381Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.7058442Z ##[group]Checking out the ref
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.7062048Z [command]/usr/bin/git checkout --progress --force -B master refs/remotes/origin/master
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.8487749Z Reset branch 'master'
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.8489717Z branch 'master' set up to track 'origin/master'.
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.8505740Z ##[endgroup]
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.8553230Z [command]/usr/bin/git log -1 --format=%H
+BBSHD	Run actions/checkout@v4	2026-06-24T09:50:44.8576856Z 7ccc420514945f6c349f89e02e06736f23f4d67c
+BBSHD	Install SDCC	﻿2026-06-24T09:50:44.8786138Z ##[group]Run sudo apt-get update
+BBSHD	Install SDCC	2026-06-24T09:50:44.8786629Z ^[[36;1msudo apt-get update^[[0m
+BBSHD	Install SDCC	2026-06-24T09:50:44.8786952Z ^[[36;1msudo apt-get install -y sdcc^[[0m
+BBSHD	Install SDCC	2026-06-24T09:50:44.8987268Z shell: /usr/bin/bash -e {0}
+BBSHD	Install SDCC	2026-06-24T09:50:44.8987724Z ##[endgroup]
+BBSHD	Install SDCC	2026-06-24T09:50:44.9920767Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+BBSHD	Install SDCC	2026-06-24T09:50:45.0221441Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+BBSHD	Install SDCC	2026-06-24T09:50:45.0223383Z Hit:6 https://packages.microsoft.com/repos/azure-cli noble InRelease
+BBSHD	Install SDCC	2026-06-24T09:50:45.0225058Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+BBSHD	Install SDCC	2026-06-24T09:50:45.0262846Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.0297668Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.0324031Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.0702728Z Get:8 https://dl.google.com/linux/chrome-stable/deb stable InRelease [1825 B]
+BBSHD	Install SDCC	2026-06-24T09:50:45.2143719Z Get:9 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [154 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.2241251Z Get:10 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [11.6 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.2258112Z Get:11 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [185 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.2668504Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1032 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.2866590Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [259 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.2941352Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [180 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.2965750Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 c-n-f Metadata [17.4 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.2984280Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1656 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.3408839Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [326 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.3558079Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [388 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.3662142Z Get:19 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 c-n-f Metadata [34.8 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.3702311Z Get:20 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+BBSHD	Install SDCC	2026-06-24T09:50:45.3784408Z Get:21 http://azure.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5744 B]
+BBSHD	Install SDCC	2026-06-24T09:50:45.4191858Z Get:22 http://azure.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [10.5 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.4230791Z Get:23 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [780 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.4480876Z Get:31 https://dl.google.com/linux/chrome-stable/deb stable/main amd64 Packages [1214 B]
+BBSHD	Install SDCC	2026-06-24T09:50:45.4586742Z Get:24 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [178 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.4672889Z Get:25 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Components [44.8 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.4714254Z Get:26 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 c-n-f Metadata [11.5 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.4734298Z Get:27 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1170 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.5265891Z Get:28 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [229 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.5392567Z Get:29 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Components [76.2 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:45.5432921Z Get:30 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 c-n-f Metadata [24.1 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:50.1612959Z Fetched 7161 kB in 1s (7174 kB/s)
+BBSHD	Install SDCC	2026-06-24T09:50:50.8638496Z Reading package lists...
+BBSHD	Install SDCC	2026-06-24T09:50:50.8958160Z Reading package lists...
+BBSHD	Install SDCC	2026-06-24T09:50:51.0863273Z Building dependency tree...
+BBSHD	Install SDCC	2026-06-24T09:50:51.0873844Z Reading state information...
+BBSHD	Install SDCC	2026-06-24T09:50:51.2375628Z The following additional packages will be installed:
+BBSHD	Install SDCC	2026-06-24T09:50:51.2382870Z   gputils gputils-common gputils-doc sdcc-doc sdcc-libraries
+BBSHD	Install SDCC	2026-06-24T09:50:51.2388961Z Suggested packages:
+BBSHD	Install SDCC	2026-06-24T09:50:51.2389909Z   python sdcc-ucsim
+BBSHD	Install SDCC	2026-06-24T09:50:51.2589576Z The following NEW packages will be installed:
+BBSHD	Install SDCC	2026-06-24T09:50:51.2596384Z   gputils gputils-common gputils-doc sdcc sdcc-doc sdcc-libraries
+BBSHD	Install SDCC	2026-06-24T09:50:51.2775632Z 0 upgraded, 6 newly installed, 0 to remove and 27 not upgraded.
+BBSHD	Install SDCC	2026-06-24T09:50:51.2776387Z Need to get 5299 kB of archives.
+BBSHD	Install SDCC	2026-06-24T09:50:51.2777009Z After this operation, 72.8 MB of additional disk space will be used.
+BBSHD	Install SDCC	2026-06-24T09:50:51.2777631Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+BBSHD	Install SDCC	2026-06-24T09:50:51.5261462Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 sdcc-libraries all 4.2.0+dfsg-1 [1260 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:51.8557366Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 sdcc amd64 4.2.0+dfsg-1 [2047 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:52.3536370Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 sdcc-doc all 4.2.0+dfsg-1 [659 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:52.5456990Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 gputils-common all 1.4.0-0.2 [299 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:52.6470457Z Get:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 gputils amd64 1.4.0-0.2 [665 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:52.9973813Z Get:7 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 gputils-doc all 1.4.0-0.2 [369 kB]
+BBSHD	Install SDCC	2026-06-24T09:50:53.3504964Z Fetched 5299 kB in 2s (2904 kB/s)
+BBSHD	Install SDCC	2026-06-24T09:50:53.3762505Z Selecting previously unselected package sdcc-libraries.
+BBSHD	Install SDCC	2026-06-24T09:50:53.4050290Z (Reading database ... 
+BBSHD	Install SDCC	2026-06-24T09:50:53.4058900Z (Reading database ... 5%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4059555Z (Reading database ... 10%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4059848Z (Reading database ... 15%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4060096Z (Reading database ... 20%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4060376Z (Reading database ... 25%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4060676Z (Reading database ... 30%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4060958Z (Reading database ... 35%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4061220Z (Reading database ... 40%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4061458Z (Reading database ... 45%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4061691Z (Reading database ... 50%
+BBSHD	Install SDCC	2026-06-24T09:50:53.4115539Z (Reading database ... 55%
+BBSHD	Install SDCC	2026-06-24T09:50:53.5090151Z (Reading database ... 60%
+BBSHD	Install SDCC	2026-06-24T09:50:53.7124310Z (Reading database ... 65%
+BBSHD	Install SDCC	2026-06-24T09:50:53.9036607Z (Reading database ... 70%
+BBSHD	Install SDCC	2026-06-24T09:50:54.0168765Z (Reading database ... 75%
+BBSHD	Install SDCC	2026-06-24T09:50:54.0649104Z (Reading database ... 80%
+BBSHD	Install SDCC	2026-06-24T09:50:54.2715762Z (Reading database ... 85%
+BBSHD	Install SDCC	2026-06-24T09:50:54.4583132Z (Reading database ... 90%
+BBSHD	Install SDCC	2026-06-24T09:50:54.6308050Z (Reading database ... 95%
+BBSHD	Install SDCC	2026-06-24T09:50:54.6308678Z (Reading database ... 100%
+BBSHD	Install SDCC	2026-06-24T09:50:54.6309595Z (Reading database ... 202324 files and directories currently installed.)
+BBSHD	Install SDCC	2026-06-24T09:50:54.6354858Z Preparing to unpack .../0-sdcc-libraries_4.2.0+dfsg-1_all.deb ...
+BBSHD	Install SDCC	2026-06-24T09:50:54.6386782Z Unpacking sdcc-libraries (4.2.0+dfsg-1) ...
+BBSHD	Install SDCC	2026-06-24T09:50:54.8872975Z Selecting previously unselected package sdcc.
+BBSHD	Install SDCC	2026-06-24T09:50:54.9001749Z Preparing to unpack .../1-sdcc_4.2.0+dfsg-1_amd64.deb ...
+BBSHD	Install SDCC	2026-06-24T09:50:54.9012778Z Unpacking sdcc (4.2.0+dfsg-1) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.0187415Z Selecting previously unselected package sdcc-doc.
+BBSHD	Install SDCC	2026-06-24T09:50:55.0314463Z Preparing to unpack .../2-sdcc-doc_4.2.0+dfsg-1_all.deb ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.0326204Z Unpacking sdcc-doc (4.2.0+dfsg-1) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.0612561Z Selecting previously unselected package gputils-common.
+BBSHD	Install SDCC	2026-06-24T09:50:55.0740319Z Preparing to unpack .../3-gputils-common_1.4.0-0.2_all.deb ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.0751608Z Unpacking gputils-common (1.4.0-0.2) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.3824671Z Selecting previously unselected package gputils.
+BBSHD	Install SDCC	2026-06-24T09:50:55.3957080Z Preparing to unpack .../4-gputils_1.4.0-0.2_amd64.deb ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.3970142Z Unpacking gputils (1.4.0-0.2) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.4908612Z Selecting previously unselected package gputils-doc.
+BBSHD	Install SDCC	2026-06-24T09:50:55.5035593Z Preparing to unpack .../5-gputils-doc_1.4.0-0.2_all.deb ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.5045150Z Unpacking gputils-doc (1.4.0-0.2) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.5503254Z Setting up gputils-common (1.4.0-0.2) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.5538918Z Setting up sdcc-libraries (4.2.0+dfsg-1) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.5566872Z Setting up sdcc-doc (4.2.0+dfsg-1) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.5600604Z Setting up gputils-doc (1.4.0-0.2) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.5627211Z Setting up gputils (1.4.0-0.2) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.5654836Z Setting up sdcc (4.2.0+dfsg-1) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.5686781Z Processing triggers for man-db (2.12.0-4build2) ...
+BBSHD	Install SDCC	2026-06-24T09:50:55.5712007Z Not building database; man-db/auto-update is not 'true'.
+BBSHD	Install SDCC	2026-06-24T09:50:56.2119316Z 
+BBSHD	Install SDCC	2026-06-24T09:50:56.2120408Z Running kernel seems to be up-to-date.
+BBSHD	Install SDCC	2026-06-24T09:50:56.2120879Z 
+BBSHD	Install SDCC	2026-06-24T09:50:56.2121071Z No services need to be restarted.
+BBSHD	Install SDCC	2026-06-24T09:50:56.2201104Z 
+BBSHD	Install SDCC	2026-06-24T09:50:56.2201389Z No containers need to be restarted.
+BBSHD	Install SDCC	2026-06-24T09:50:56.2201754Z 
+BBSHD	Install SDCC	2026-06-24T09:50:56.2202066Z No user sessions are running outdated binaries.
+BBSHD	Install SDCC	2026-06-24T09:50:56.2202539Z 
+BBSHD	Install SDCC	2026-06-24T09:50:56.2202983Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+BBSHD	Debug UNAME detection	﻿2026-06-24T09:50:57.0964434Z ##[group]Run echo "PATH=$PATH"
+BBSHD	Debug UNAME detection	2026-06-24T09:50:57.0964760Z ^[[36;1mecho "PATH=$PATH"^[[0m
+BBSHD	Debug UNAME detection	2026-06-24T09:50:57.0965012Z ^[[36;1mecho "ENV_UNAME=[$UNAME]"^[[0m
+BBSHD	Debug UNAME detection	2026-06-24T09:50:57.0965430Z ^[[36;1mmake -p echo TARGET_CONTROLLER=BBSHD 2>&1 | grep -A3 -B1 '^UNAME' || true^[[0m
+BBSHD	Debug UNAME detection	2026-06-24T09:50:57.0998207Z shell: /usr/bin/bash -e {0}
+BBSHD	Debug UNAME detection	2026-06-24T09:50:57.0998468Z ##[endgroup]
+BBSHD	Debug UNAME detection	2026-06-24T09:50:57.1050567Z PATH=/snap/bin:/home/runner/.local/bin:/opt/pipx_bin:/home/runner/.cargo/bin:/home/runner/.config/composer/vendor/bin:/usr/local/.ghcup/bin:/home/runner/.dotnet/tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+BBSHD	Debug UNAME detection	2026-06-24T09:50:57.1052437Z ENV_UNAME=[]
+BBSHD	Build BBSHD	﻿2026-06-24T09:50:57.1128259Z ##[group]Run make all TARGET_CONTROLLER=BBSHD
+BBSHD	Build BBSHD	2026-06-24T09:50:57.1128651Z ^[[36;1mmake all TARGET_CONTROLLER=BBSHD^[[0m
+BBSHD	Build BBSHD	2026-06-24T09:50:57.1159492Z shell: /usr/bin/bash -e {0}
+BBSHD	Build BBSHD	2026-06-24T09:50:57.1159859Z ##[endgroup]
+BBSHD	Build BBSHD	2026-06-24T09:50:57.1225086Z Building bbs-fw for BBSHD
+BBSHD	Build BBSHD	2026-06-24T09:50:57.1228478Z sdcc -o app.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 app.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.4456827Z sdcc -o battery.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 battery.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.4741841Z sdcc -o cfgstore.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 cfgstore.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.5357293Z sdcc -o eventlog.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 eventlog.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.5455303Z sdcc -o extcom.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 extcom.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.6789963Z sdcc -o throttle.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 throttle.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.7042693Z sdcc -o bbsx/adc.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 bbsx/adc.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.7213063Z sdcc -o bbsx/eeprom.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 bbsx/eeprom.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.7383446Z sdcc -o bbsx/lights.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 bbsx/lights.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.7478202Z sdcc -o bbsx/motor.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 bbsx/motor.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.8965675Z sdcc -o bbsx/sensors.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 bbsx/sensors.c
+BBSHD	Build BBSHD	2026-06-24T09:50:57.9966584Z sdcc -o bbsx/system.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 bbsx/system.c
+BBSHD	Build BBSHD	2026-06-24T09:50:58.0121546Z sdcc -o bbsx/timers.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 bbsx/timers.c
+BBSHD	Build BBSHD	2026-06-24T09:50:58.0278228Z sdcc -o bbsx/uart.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 bbsx/uart.c
+BBSHD	Build BBSHD	2026-06-24T09:50:58.0558368Z sdcc -o bbsx/watchdog.rel -c -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 bbsx/watchdog.c
+BBSHD	Build BBSHD	2026-06-24T09:50:58.0656799Z sdcc -o bbs-fw.ihx -I./ -Ibbsx -Ddouble=float --std-c99 -DBBSHD -mmcs51 --model-large --xram-size 3840	 main.c app.rel battery.rel cfgstore.rel eventlog.rel extcom.rel throttle.rel bbsx/adc.rel bbsx/eeprom.rel bbsx/lights.rel bbsx/motor.rel bbsx/sensors.rel bbsx/system.rel bbsx/timers.rel bbsx/uart.rel bbsx/watchdog.rel
+BBSHD	Build BBSHD	2026-06-24T09:50:58.1216896Z make: cmd: No such file or directory
+BBSHD	Build BBSHD	2026-06-24T09:50:58.1217334Z make: *** [Makefile:77: hex] Error 127
+BBSHD	Build BBSHD	2026-06-24T09:50:58.1234819Z ##[error]Process completed with exit code 2.
+BBSHD	Post Run actions/checkout@v4	﻿2026-06-24T09:50:58.1372574Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.1374460Z Post job cleanup.
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2190374Z [command]/usr/bin/git version
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2262668Z git version 2.54.0
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2302958Z Temporarily overriding HOME='/home/runner/work/_temp/2c676bf0-420c-4f2f-b180-8f2e38b13e3b' before making global git config changes
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2304563Z Adding repository directory to the temporary git global config as a safe directory
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2309839Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/bbs-fw-ai/bbs-fw-ai
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2350222Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2384797Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2620045Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2648730Z http.https://github.com/.extraheader
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2661181Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2699073Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2928569Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+BBSHD	Post Run actions/checkout@v4	2026-06-24T09:50:58.2961517Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+BBSHD	Complete job	﻿2026-06-24T09:50:58.3317446Z Cleaning up orphan processes
+BBSHD	Complete job	2026-06-24T09:50:58.3621726Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

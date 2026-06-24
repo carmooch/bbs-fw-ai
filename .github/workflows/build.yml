@@ -24,7 +24,9 @@ jobs:
         working-directory: src/firmware
         run: |
           echo "PATH=$PATH"
-          make -q TARGET_CONTROLLER=BBSHD --eval='$(info UNAME_DEBUG=[$(UNAME)])' || true
+          printf '$(info UNAME_DEBUG=[$(UNAME)])\ndebugtarget:\n\t@true\n' > debug.mk
+          make -f Makefile -f debug.mk debugtarget TARGET_CONTROLLER=BBSHD || true
+          rm -f debug.mk
 
       - name: Build ${{ matrix.target }}
         working-directory: src/firmware

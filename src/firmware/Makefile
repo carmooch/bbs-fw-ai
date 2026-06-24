@@ -70,7 +70,6 @@ ifndef TARGET_CONTROLLER
 endif
 	$(info Building bbs-fw for $(TARGET_CONTROLLER))
 
-$(info DEBUG2: OS=[$(OS)] UNAME=[$(UNAME)] UNAMEeqLinux=[$(filter Linux,$(UNAME))])
 hex:
 ifeq ($(UNAME), Linux)
 	@packihx bbs-fw.ihx > bbs-fw.hex

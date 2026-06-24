@@ -20,6 +20,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y sdcc
 
+      - name: Debug packihx
+        run: dpkg -L sdcc | grep -i packihx || (which packihx; echo "not in sdcc package"; apt-cache search packihx)
+
       - name: Build ${{ matrix.target }}
         working-directory: src/firmware
         run: make all TARGET_CONTROLLER=${{ matrix.target }}

@@ -24,9 +24,8 @@ jobs:
         working-directory: src/firmware
         run: |
           echo "PATH=$PATH"
-          printf '$(info DEBUG: TARGET=[$(TARGET)] CC=[$(CC)] UNAME=[$(UNAME)] FINDSTRING=[$(findstring ;,$(PATH))] SHELLUNAME=[$(shell uname)])\ndebugtarget:\n\t@true\n' > debug.mk
-          make -f Makefile -f debug.mk debugtarget TARGET_CONTROLLER=BBSHD 2>&1 || true
-          rm -f debug.mk
+          echo "ENV_UNAME=[$UNAME]"
+          make -p -q -f Makefile TARGET_CONTROLLER=BBSHD 2>&1 | grep -A3 -B1 '^UNAME' || true
 
       - name: Build ${{ matrix.target }}
         working-directory: src/firmware

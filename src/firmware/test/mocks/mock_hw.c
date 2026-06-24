@@ -5,7 +5,8 @@
 #include "mock_hw.h"
 #include "cfgstore.h"
 
-config_t g_config;
+// g_config / g_pstate are now provided by the real cfgstore.c, which is
+// part of the test build (see test_cfgstore.c).
 
 static uint32_t mock_ms;
 static uint8_t mock_throttle_adc;

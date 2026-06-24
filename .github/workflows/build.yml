@@ -46,6 +46,23 @@ jobs:
         working-directory: src/firmware/test
         run: make run
 
+  config-tool:
+    name: Config tool (WPF)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Restore
+        run: dotnet restore src/tool/bbs-fw-tool.sln
+
+      - name: Build
+        run: dotnet build src/tool/bbs-fw-tool.sln -c Release --no-restore
+
   web-tool:
     name: Web config tool
     runs-on: ubuntu-latest

@@ -1,0 +1,32 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [BBSHD, BBS02, TSDZ2]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDCC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sdcc
+
+      - name: Build ${{ matrix.target }}
+        working-directory: src/firmware
+        run: make all TARGET_CONTROLLER=${{ matrix.target }}
+
+      - name: Upload hex
+        uses: actions/upload-artifact@v4
+        with:
+          name: bbs-fw-${{ matrix.target }}
+          path: src/firmware/*.hex
+          if-no-files-found: error

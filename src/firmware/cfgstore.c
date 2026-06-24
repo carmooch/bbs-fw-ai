@@ -20,11 +20,17 @@
 #define EEPROM_OK					0
 #define EEPROM_ERROR_SELECT_PAGE	1
 #define EEPROM_ERROR_READ			2
-#define EEPROM_ERROR_VERSION		3
-#define EEPROM_ERROR_LENGTH			4
-#define EEPROM_ERROR_CHECKSUM		5
-#define EEPROM_ERROR_ERASE			6
-#define EEPROM_ERROR_WRITE			7
+#define EEPROM_ERROR_MAGIC			3
+#define EEPROM_ERROR_VERSION		4
+#define EEPROM_ERROR_LENGTH			5
+#define EEPROM_ERROR_CHECKSUM		6
+#define EEPROM_ERROR_ERASE			7
+#define EEPROM_ERROR_WRITE			8
+
+// Arbitrary non-0x00/0xFF byte so a fresh/erased or otherwise foreign EEPROM
+// page is rejected outright rather than relying on version+length+checksum
+// alone to catch it.
+#define EEPROM_MAGIC				0xB5
 
 static const uint8_t default_current_limits[] = { 7, 10, 14, 19, 26, 36, 50, 70, 98 };
 
@@ -34,6 +40,7 @@ static const uint8_t default_torque_factors[] = { 10, 15, 23, 44, 57, 74, 88, 10
 
 typedef struct
 {
+	uint8_t magic;
 	uint8_t version;
 	uint8_t length;
 	uint8_t checksum;
@@ -106,6 +113,7 @@ static bool read_config()
 	default:
 		eventlog_write(EVT_ERROR_EEPROM_READ);
 		break;
+	case EEPROM_ERROR_MAGIC:
 	case EEPROM_ERROR_VERSION:
 		eventlog_write(EVT_ERROR_EEPROM_VERIFY_VERSION);
 		break;
@@ -226,6 +234,7 @@ static bool read_pstate()
 	default:
 		eventlog_write(EVT_ERROR_EEPROM_READ);
 		break;
+	case EEPROM_ERROR_MAGIC:
 	case EEPROM_ERROR_VERSION:
 		eventlog_write(EVT_ERROR_EEPROM_VERIFY_VERSION);
 		break;
@@ -295,6 +304,11 @@ static uint8_t read(uint8_t page, uint8_t version, uint8_t* dst, uint8_t size)
 	}
 
 	// verify header ok
+	if (header.magic != EEPROM_MAGIC)
+	{
+		return EEPROM_ERROR_MAGIC;
+	}
+
 	if (header.version != version)
 	{
 		return EEPROM_ERROR_VERSION;
@@ -336,6 +350,7 @@ static uint8_t write(uint8_t page, uint8_t version, uint8_t* src, uint8_t size)
 	uint8_t* ptr = 0;
 	uint8_t i = 0;
 
+	header.magic = EEPROM_MAGIC;
 	header.version = version;
 	header.length = size;
 	header.checksum = 0;

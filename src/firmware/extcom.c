@@ -451,7 +451,11 @@ static int16_t process_write_config()
 		return KEEP;
 	}
 
-	if (compute_checksum(msgbuf, (uint8_t)(4 + sizeof(config_t))) == msgbuf[4 + sizeof(config_t)])
+	// Checksum over exactly what the host declared (length), not sizeof(config_t):
+	// the two can differ (older tool, newer firmware) and length is what's
+	// actually present in msgbuf at this point. The version/length check below
+	// still gates whether we trust the payload enough to copy it into g_config.
+	if (compute_checksum(msgbuf, (uint8_t)(4 + length)) == msgbuf[4 + length])
 	{
 		bool result = false;
 		if (version == CONFIG_VERSION && length == sizeof(config_t))

@@ -54,7 +54,7 @@
 #define LIGHTS_MODE_ALWAYS_ON			2
 #define LIGHTS_MODE_BRAKE_LIGHT			3
 
-#define CONFIG_VERSION					5
+#define CONFIG_VERSION					6
 #define PSTATE_VERSION					1
 
 
@@ -125,6 +125,10 @@ typedef struct
 	uint8_t assist_mode_select;
 	uint8_t assist_startup_level;
 	assist_level_t assist_levels[2][10];
+
+	// display
+	uint8_t display_range_field_data;
+	uint8_t max_cadence_rpm;
 } config_t;
 
 typedef struct

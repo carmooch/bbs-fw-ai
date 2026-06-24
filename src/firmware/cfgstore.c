@@ -162,6 +162,14 @@ static void load_default_config()
 	g_config.max_current_amps = 20;
 #endif
 
+#if defined(BBS02)
+	g_config.max_cadence_rpm = 150;
+#elif defined(BBSHD)
+	g_config.max_cadence_rpm = 168; // measured on BBSHD at 48V
+#else
+	g_config.max_cadence_rpm = 120;
+#endif
+
 	g_config.current_ramp_amps_s = 10;
 	g_config.max_battery_x100v_u16l = (uint8_t)5460;
 	g_config.max_battery_x100v_u16h = (uint8_t)(5460 >> 8);
@@ -200,6 +208,13 @@ static void load_default_config()
 	g_config.shift_interrupt_current_threshold_percent = 10;
 
 	g_config.walk_mode_data_display = WALK_MODE_DATA_SPEED;
+
+	// default to temperature if a temperature sensor is available, else power
+#if HAS_CONTROLLER_TEMP_SENSOR || HAS_MOTOR_TEMP_SENSOR
+	g_config.display_range_field_data = DISPLAY_RANGE_FIELD_TEMPERATURE;
+#else
+	g_config.display_range_field_data = DISPLAY_RANGE_FIELD_POWER;
+#endif
 
 	g_config.assist_mode_select = ASSIST_MODE_SELECT_OFF;
 	g_config.assist_startup_level = 3;

@@ -34,15 +34,6 @@
 	#define HAS_SHIFT_SENSOR_SUPPORT			0
 #endif
 
-#if defined(BBS02)
-	#define MAX_CADENCE_RPM_X10					1500
-#elif defined(BBSHD)
-	// Measured on BBSHD at 48V
-	#define MAX_CADENCE_RPM_X10					1680
-#else
-	#define MAX_CADENCE_RPM_X10					1200
-#endif
-
 #if defined(BBS02) || defined(BBSHD)
 	#define PAS_PULSES_REVOLUTION				24
 #elif defined(TSDZ2)
@@ -151,22 +142,12 @@
 #define CRUISE_DISENGAGE_PAS_PULSES				PAS_PULSES_REVOLUTION / 2
 
 
-// Option to control what data is displayed in "Range" field on display
-// since range calculation is not implemented.
+// Values for g_config.display_range_field_data, which controls what data is
+// displayed in the "Range" field on display since range calculation is not
+// implemented. Configurable at runtime via the config tool; see
+// cfgstore.c's load_default_config() for the per-target default.
 #define DISPLAY_RANGE_FIELD_ZERO				0
 #define DISPLAY_RANGE_FIELD_TEMPERATURE			1	// max temperature of controller / motor
 #define DISPLAY_RANGE_FIELD_POWER				2	// requested current x10 (lights off) / actual current x10 (lights on)
-
-// uncomment and select option above
-// #define DISPLAY_RANGE_FIELD_DATA		DISPLAY_RANGE_FIELD_ZERO
-
-// default to temperature if temperature sensors available (BBS2/BBSHD), else power (TSDZ2)
-#ifndef DISPLAY_RANGE_FIELD_DATA
-	#if HAS_CONTROLLER_TEMP_SENSOR || HAS_MOTOR_TEMP_SENSOR
-	#define DISPLAY_RANGE_FIELD_DATA		DISPLAY_RANGE_FIELD_TEMPERATURE
-	#else
-	#define DISPLAY_RANGE_FIELD_DATA		DISPLAY_RANGE_FIELD_POWER
-	#endif
-#endif 
 
 #endif

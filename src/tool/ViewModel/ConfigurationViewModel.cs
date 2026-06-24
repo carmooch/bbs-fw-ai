@@ -55,6 +55,14 @@ namespace BBSFW.ViewModel
 				new ValueItemViewModel<Configuration.WalkModeData>(Configuration.WalkModeData.BatteryPercent, "Battery Level (%)")
 			};
 
+		public static List<ValueItemViewModel<Configuration.DisplayRangeFieldData>> DisplayRangeFieldDataOptions { get; } =
+			new List<ValueItemViewModel<Configuration.DisplayRangeFieldData>>
+			{
+				new ValueItemViewModel<Configuration.DisplayRangeFieldData>(Configuration.DisplayRangeFieldData.Zero, "None"),
+				new ValueItemViewModel<Configuration.DisplayRangeFieldData>(Configuration.DisplayRangeFieldData.Temperature, "Temperature (C)"),
+				new ValueItemViewModel<Configuration.DisplayRangeFieldData>(Configuration.DisplayRangeFieldData.Power, "Requested Power")
+			};
+
 		public static List<ValueItemViewModel<Configuration.ThrottleGlobalSpeedLimitOptions>> ThrottleGlobalSpeedLimitOptions { get; } =
 			new List<ValueItemViewModel<Configuration.ThrottleGlobalSpeedLimitOptions>>
 			{
@@ -512,6 +520,35 @@ namespace BBSFW.ViewModel
 				{
 					_config.WalkModeDataDisplay = value.Value;
 					OnPropertyChanged(nameof(WalkModeDataDisplay));
+				}
+			}
+		}
+
+		public ValueItemViewModel<Configuration.DisplayRangeFieldData> DisplayRangeFieldData
+		{
+			get
+			{
+				return DisplayRangeFieldDataOptions.FirstOrDefault((e) => e.Value == _config.DisplayRangeField);
+			}
+			set
+			{
+				if (_config.DisplayRangeField != value.Value)
+				{
+					_config.DisplayRangeField = value.Value;
+					OnPropertyChanged(nameof(DisplayRangeFieldData));
+				}
+			}
+		}
+
+		public uint MaxCadenceRpm
+		{
+			get { return _config.MaxCadenceRpm; }
+			set
+			{
+				if (_config.MaxCadenceRpm != value)
+				{
+					_config.MaxCadenceRpm = value;
+					OnPropertyChanged(nameof(MaxCadenceRpm));
 				}
 			}
 		}

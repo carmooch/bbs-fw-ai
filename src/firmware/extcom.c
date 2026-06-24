@@ -656,34 +656,37 @@ static int16_t process_bafang_display_read_range()
 
 	uint16_t value = 0;
 
-#if DISPLAY_RANGE_FIELD_DATA == DISPLAY_RANGE_FIELD_TEMPERATURE
-	value = app_get_temperature();
-	if (g_config.use_freedom_units)
+	if (g_config.display_range_field_data == DISPLAY_RANGE_FIELD_TEMPERATURE)
 	{
-		// Convert to farenheit and compensate for the km -> miles conversion the diplay will do
-		// F_miles = (C * 9/5 + 32) * 161 / 100
-		// Approximistation:
-		// F_miles = 2.9C + 50.5
+		value = app_get_temperature();
+		if (g_config.use_freedom_units)
+		{
+			// Convert to farenheit and compensate for the km -> miles conversion the diplay will do
+			// F_miles = (C * 9/5 + 32) * 161 / 100
+			// Approximistation:
+			// F_miles = 2.9C + 50.5
 
-		value = ((290u * value) + 5050u) / 100u;
+			value = ((290u * value) + 5050u) / 100u;
+		}
 	}
-#elif DISPLAY_RANGE_FIELD_DATA == DISPLAY_RANGE_FIELD_POWER
-	if (app_get_lights())
+	else if (g_config.display_range_field_data == DISPLAY_RANGE_FIELD_POWER)
 	{
-		value = motor_get_battery_current_x10();
-	}
-	else
-	{
-		uint16_t max_current_amp_x10 = g_config.max_current_amps * 10;
-		value = MAP32(motor_get_target_current(), 0, 100, 0, max_current_amp_x10);
-	}
+		if (app_get_lights())
+		{
+			value = motor_get_battery_current_x10();
+		}
+		else
+		{
+			uint16_t max_current_amp_x10 = g_config.max_current_amps * 10;
+			value = MAP32(motor_get_target_current(), 0, 100, 0, max_current_amp_x10);
+		}
 
-	if (g_config.use_freedom_units)
-	{
-		// compensate for km -> miles conversion the display will do
-		value = (value * 161u) / 100u;
+		if (g_config.use_freedom_units)
+		{
+			// compensate for km -> miles conversion the display will do
+			value = (value * 161u) / 100u;
+		}
 	}
-#endif
 
 	uint8_t checksum = 0;
 

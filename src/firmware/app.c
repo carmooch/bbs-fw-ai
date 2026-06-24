@@ -938,7 +938,7 @@ void reload_assist_params()
 		{
 			assist_level_data.keep_current_target_percent = (uint8_t)((uint16_t)g_config.pas_keep_current_percent * assist_level_data.level.target_current_percent / 100);
 			assist_level_data.keep_current_ramp_start_rpm_x10 = g_config.pas_keep_current_cadence_rpm * 10;
-			assist_level_data.keep_current_ramp_end_rpm_x10 = (uint16_t)(((uint32_t)assist_level_data.level.max_cadence_percent * MAX_CADENCE_RPM_X10) / 100);
+			assist_level_data.keep_current_ramp_end_rpm_x10 = (uint16_t)(((uint32_t)assist_level_data.level.max_cadence_percent * g_config.max_cadence_rpm * 10) / 100);
 		}
 
 		// pause cruise if swiching level

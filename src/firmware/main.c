@@ -68,7 +68,7 @@ void main(void)
 
 	app_init();
 
-	uint32_t next_app_proccess = system_ms();
+	uint32_t next_app_process = system_ms();
 	while (1)
 	{
 		uint32_t now = system_ms();
@@ -76,9 +76,9 @@ void main(void)
 		adc_process();
 		motor_process();
 
-		if (now >= next_app_proccess)
+		if (now >= next_app_process)
 		{
-			next_app_proccess = now + APP_PROCESS_INTERVAL_MS;
+			next_app_process = now + APP_PROCESS_INTERVAL_MS;
 
 			battery_process();
 			sensors_process();
@@ -86,6 +86,6 @@ void main(void)
 			app_process();
 		}
 
-		watchdog_yeild();
+		watchdog_yield();
 	}
 }

@@ -209,7 +209,7 @@ void app_set_assist_level(uint8_t level)
 	{
 		if (assist_level == ASSIST_PUSH && g_config.use_push_walk)
 		{
-			// When releasig push walk mode pedals may have been rotating
+			// When releasing push walk mode pedals may have been rotating
 			// with the motor, block motor power for 2 seconds to prevent PAS
 			// sensor from incorrectly applying power if returning to a PAS level.
 			block_power_for(1000);
@@ -223,19 +223,10 @@ void app_set_assist_level(uint8_t level)
 
 void app_set_lights(bool on)
 {
-	if ( // it's ok to write ugly code if you say it's ugly...
-		(g_config.assist_mode_select == ASSIST_MODE_SELECT_LIGHTS) ||
-		(assist_level == ASSIST_0 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS0_LIGHT) ||
-		(assist_level == ASSIST_1 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS1_LIGHT) ||
-		(assist_level == ASSIST_2 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS2_LIGHT) ||
-		(assist_level == ASSIST_3 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS3_LIGHT) ||
-		(assist_level == ASSIST_4 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS4_LIGHT) ||
-		(assist_level == ASSIST_5 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS5_LIGHT) ||
-		(assist_level == ASSIST_6 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS6_LIGHT) ||
-		(assist_level == ASSIST_7 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS7_LIGHT) ||
-		(assist_level == ASSIST_8 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS8_LIGHT) ||
-		(assist_level == ASSIST_9 && g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS9_LIGHT)
-		)
+	// ASSIST_MODE_SELECT_PAS0_LIGHT..PAS9_LIGHT are sequential, so the
+	// per-level "lights tied to this assist level" check collapses to one comparison.
+	if ((g_config.assist_mode_select == ASSIST_MODE_SELECT_LIGHTS) ||
+		(g_config.assist_mode_select == ASSIST_MODE_SELECT_PAS0_LIGHT + assist_level))
 	{
 		if (on)
 		{
@@ -498,7 +489,7 @@ void apply_cruise(uint8_t* target_current, uint8_t throttle_percent)
 			cruise_block_throttle_return = true;
 		}
 
-		// reset flag tracking throttle to make sure throttle returns to idle position before engage/disenage cruise with throttle touch
+		// reset flag tracking throttle to make sure throttle returns to idle position before engage/disengage cruise with throttle touch
 		else if (cruise_block_throttle_return && throttle_percent == 0)
 		{
 			cruise_block_throttle_return = false;

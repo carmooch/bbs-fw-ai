@@ -83,7 +83,7 @@ namespace BBSFW.ViewModel
 			}
 			else
 			{
-				MessageBox.Show("Failed to save voltage calibration, timeout occured.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+				MessageBox.Show("Failed to save voltage calibration, timeout occurred.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 			}
 		}
 
@@ -109,7 +109,7 @@ namespace BBSFW.ViewModel
 			}
 			else
 			{
-				MessageBox.Show("Failed to reset voltage calibration, timeout occured.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+				MessageBox.Show("Failed to reset voltage calibration, timeout occurred.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 			}
 		}
 

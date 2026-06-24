@@ -17,7 +17,7 @@ void watchdog_init()
 	WDT_CONTR = 0x34; // Enable watchdog timer, pre-scaler 32 (625ms, 20MHz)
 }
 
-void watchdog_yeild()
+void watchdog_yield()
 {
 	SET_BIT(WDT_CONTR, 4);
 }

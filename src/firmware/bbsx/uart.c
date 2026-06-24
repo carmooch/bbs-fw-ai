@@ -166,7 +166,7 @@ void uart_write(uint8_t byte)
 		if (tx1_tail != prev_tail)
 		{
 			prev_tail = tx1_tail;
-			watchdog_yeild();
+			watchdog_yield();
 		}
 	}
 
@@ -194,7 +194,7 @@ void uart_motor_write(uint8_t byte)
 		if (tx2_tail != prev_tail)
 		{
 			prev_tail = tx2_tail;
-			watchdog_yeild();
+			watchdog_yield();
 		}
 	}
 

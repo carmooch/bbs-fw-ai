@@ -5,7 +5,7 @@ TARGET = test_runner
 
 INC_DIRS = -I.. -I./mocks -I.
 
-CFLAGS = -std=c99 -Wall -Wextra $(INC_DIRS)
+CFLAGS = -std=c99 -Wall -Wextra -Wno-unused-function $(INC_DIRS)
 
 SRCS = \
 	../throttle.c \

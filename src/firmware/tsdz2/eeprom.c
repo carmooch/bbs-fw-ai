@@ -56,7 +56,7 @@ bool eeprom_write_byte(int offset, uint8_t value)
 		while (!(FLASH->IAPSR & FLASH_IAPSR_DUL));
 	}
 
-	watchdog_yeild(); // :TODO: use faster api to write entire page
+	watchdog_yield(); // :TODO: use faster api to write entire page
 
 	*address = value;
 	while (!(FLASH->IAPSR & FLASH_IAPSR_EOP));

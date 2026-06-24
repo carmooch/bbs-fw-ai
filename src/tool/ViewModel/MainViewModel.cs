@@ -171,7 +171,7 @@ namespace BBSFW.ViewModel
 			}
 			else
 			{
-				MessageBox.Show("Failed to read configuration from flash, timeout occured.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+				MessageBox.Show("Failed to read configuration from flash, timeout occurred.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 			}
 		}
 
@@ -206,7 +206,7 @@ namespace BBSFW.ViewModel
 			}
 			else
 			{
-				MessageBox.Show("Failed to write configuration to flash, timeout occured.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+				MessageBox.Show("Failed to write configuration to flash, timeout occurred.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 			}
 		}
 
@@ -231,7 +231,7 @@ namespace BBSFW.ViewModel
 			}
 			else
 			{
-				MessageBox.Show("Failed to reset configuration, timeout occured.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+				MessageBox.Show("Failed to reset configuration, timeout occurred.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 			}
 		}
 

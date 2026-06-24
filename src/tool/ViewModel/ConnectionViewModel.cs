@@ -212,7 +212,7 @@ namespace BBSFW.ViewModel
 
 					if (!connected)
 					{
-						MessageBox.Show("Failed to connect, timeout occured.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+						MessageBox.Show("Failed to connect, timeout occurred.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 					}
 				}
 				catch (Exception ex)

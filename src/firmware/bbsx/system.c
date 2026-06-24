@@ -48,7 +48,7 @@ void system_delay_ms(uint16_t ms)
 	uint32_t end = system_ms() + ms;
 	while (system_ms() != end)
 	{
-		watchdog_yeild();
+		watchdog_yield();
 	}
 }
 

@@ -14,7 +14,7 @@
 #include <stdbool.h>
 
 void watchdog_init();
-void watchdog_yeild();
+void watchdog_yield();
 
 bool watchdog_triggered();
 

@@ -22,10 +22,10 @@ void watchdog_init()
 	IWDG->PR = 6;		// divide by 256
 	IWDG->RLR = 156;	// reload to 625 milliseconds
 
-	watchdog_yeild();
+	watchdog_yield();
 }
 
-void watchdog_yeild()
+void watchdog_yield()
 {
 	IWDG->KR = 0xaa;
 }

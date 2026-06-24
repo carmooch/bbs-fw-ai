@@ -83,7 +83,6 @@ static uint8_t msgbuf[BUFFER_SIZE];
 static uint32_t last_recv_ms;
 static uint32_t discard_until_ms;
 
-static uint8_t compute_checksum(uint8_t* buf, uint8_t length);
 static void write_uart_and_increment_checksum(uint8_t data, uint8_t* checksum);
 
 static int16_t try_process_request();
@@ -192,18 +191,6 @@ void extcom_process()
 	}
 }
 
-
-static uint8_t compute_checksum(uint8_t* buf, uint8_t length)
-{
-	uint8_t result = 0;
-
-	for (uint8_t i = 0; i < length; ++i)
-	{
-		result += buf[i];
-	}
-
-	return result;
-}
 
 static void write_uart_and_increment_checksum(uint8_t data, uint8_t* checksum)
 {

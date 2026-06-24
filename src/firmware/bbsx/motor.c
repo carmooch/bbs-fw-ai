@@ -10,6 +10,7 @@
 #include "sensors.h"
 #include "system.h"
 #include "eventlog.h"
+#include "util.h"
 #include "bbsx/uart_motor.h"
 #include "bbsx/pins.h"
 
@@ -24,7 +25,6 @@
 #define OPCODE_UNKNOWN2			0x69
 #define OPCODE_UNKNOWN3			0x6A
 #define OPCODE_UNKNOWN4			0x6B
-#define OPCODE_UNKNOWN5			0x6C
 #define OPCODE_UNKNOWN5			0x6C
 #define OPCODE_UNKNOWN6			0x6D
 #define OPCODE_UNKNOWN7			0x6E
@@ -81,7 +81,6 @@ static uint32_t last_status_read_ms;
 static uint8_t next_status_read_opcode;
 
 
-static uint8_t compute_checksum(uint8_t* msg, uint8_t len);
 static void send_request(uint8_t opcode, uint16_t data);
 static void send_request_async(uint8_t opcode, uint16_t data);
 
@@ -257,17 +256,6 @@ uint16_t motor_get_battery_current_x10()
 uint16_t motor_get_battery_voltage_x10()
 {
 	return battery_volt_x10;
-}
-
-static uint8_t compute_checksum(uint8_t* msg, uint8_t len)
-{
-	uint8_t checksum = 0;
-	for (int i = 0; i < len; ++i)
-	{
-		checksum += *(msg + i);
-	}
-
-	return checksum;
 }
 
 static void send_request(uint8_t opcode, uint16_t data)

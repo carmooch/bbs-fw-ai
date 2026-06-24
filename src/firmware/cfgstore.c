@@ -21,7 +21,7 @@
 #define EEPROM_ERROR_SELECT_PAGE	1
 #define EEPROM_ERROR_READ			2
 #define EEPROM_ERROR_VERSION		3
-#define EEPROM_ERROR_LENGHT			4
+#define EEPROM_ERROR_LENGTH			4
 #define EEPROM_ERROR_CHECKSUM		5
 #define EEPROM_ERROR_ERASE			6
 #define EEPROM_ERROR_WRITE			7
@@ -109,7 +109,7 @@ static bool read_config()
 	case EEPROM_ERROR_VERSION:
 		eventlog_write(EVT_ERROR_EEPROM_VERIFY_VERSION);
 		break;
-	case EEPROM_ERROR_LENGHT:
+	case EEPROM_ERROR_LENGTH:
 	case EEPROM_ERROR_CHECKSUM:
 		eventlog_write(EVT_ERROR_EEPROM_VERIFY_CHECKSUM);
 		break;
@@ -229,7 +229,7 @@ static bool read_pstate()
 	case EEPROM_ERROR_VERSION:
 		eventlog_write(EVT_ERROR_EEPROM_VERIFY_VERSION);
 		break;
-	case EEPROM_ERROR_LENGHT:
+	case EEPROM_ERROR_LENGTH:
 	case EEPROM_ERROR_CHECKSUM:
 		eventlog_write(EVT_ERROR_EEPROM_VERIFY_CHECKSUM);
 		break;
@@ -302,7 +302,7 @@ static uint8_t read(uint8_t page, uint8_t version, uint8_t* dst, uint8_t size)
 
 	if (header.length != size)
 	{
-		return EEPROM_ERROR_LENGHT;
+		return EEPROM_ERROR_LENGTH;
 	}
 
 	uint8_t checksum = 0;

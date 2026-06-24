@@ -21,6 +21,9 @@ https://github.com/danielnilsson9/bbs-fw/wiki/Flash-Firmware-(BBS02-&-BBSHD)
 **Configure**  
 https://github.com/danielnilsson9/bbshd-fw/wiki/Configuration-Tool
 
+**Build from source**  
+See [BUILDING.md](BUILDING.md).
+
 
 If you find this project useful, consider sending a small [donation](https://www.paypal.com/donate/?business=LVAYFCMQYN8F4&no_recurring=0&item_name=BBSHD-FW&currency_code=USD) to fund further development.
 

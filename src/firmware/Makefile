@@ -1,10 +1,10 @@
-.PHONY: all clean
-
 ifeq ($(OS),Windows_NT)
 	UNAME := Windows
 else
 	UNAME := $(shell uname 2>/dev/null || echo Unknown)
 endif
+
+.PHONY: all clean
 
 # Select target controller (normally done from cmd line):
 #TARGET_CONTROLLER = BBSHD

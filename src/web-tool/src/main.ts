@@ -47,6 +47,45 @@ function speedInputHandler(input: HTMLInputElement, set: (v: number) => void): v
 	})
 }
 
+// Coordinates the wheel-size preset dropdown with the free-entry number input:
+// the number input is the source of truth (config.wheelSizeInch), the dropdown
+// is a convenience that fills it. Selecting a preset sets the number; typing a
+// value that matches no preset shows "custom".
+function bindWheelSize(preset: HTMLSelectElement, input: HTMLInputElement): Binding {
+	const presetValues = Array.from(preset.options)
+		.map((o) => o.value)
+		.filter((v) => v !== 'custom')
+
+	const syncPresetToValue = () => {
+		const match = presetValues.find((v) => Number(v) === config.wheelSizeInch)
+		preset.value = match ?? 'custom'
+	}
+
+	preset.addEventListener('change', () => {
+		if (preset.value === 'custom') {
+			return
+		}
+		config.wheelSizeInch = Number(preset.value)
+		input.value = String(config.wheelSizeInch)
+	})
+
+	input.addEventListener('input', () => {
+		const v = Number(input.value)
+		if (Number.isNaN(v)) {
+			return
+		}
+		config.wheelSizeInch = v
+		syncPresetToValue()
+	})
+
+	return {
+		refresh: () => {
+			input.value = String(config.wheelSizeInch)
+			syncPresetToValue()
+		},
+	}
+}
+
 const bindings: Binding[] = []
 function bind(b: Binding): void {
 	bindings.push(b)
@@ -94,7 +133,7 @@ function setupBindings(): void {
 	speedInputHandler(pretensionInput, (v) => (config.pretensionSpeedCutoffKph = v))
 	bind(bindSpeedKph(pretensionInput, () => config.pretensionSpeedCutoffKph))
 
-	bind(bindNumber(el('wheelSizeInch'), () => config.wheelSizeInch, (v) => (config.wheelSizeInch = v)))
+	bind(bindWheelSize(el('wheelSizePreset'), el('wheelSizeInch')))
 	bind(bindNumber(el('numWheelSensorSignals'), () => config.numWheelSensorSignals, (v) => (config.numWheelSensorSignals = v)))
 
 	bind(bindNumber(el('shiftInterruptDuration'), () => config.shiftInterruptDuration, (v) => (config.shiftInterruptDuration = v)))

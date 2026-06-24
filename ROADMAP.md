@@ -46,7 +46,7 @@ A quick review surfaced a number of issues worth addressing before adding featur
 - ~~**Duplicate `#define OPCODE_UNKNOWN5`** in `bbsx/motor.c`~~ — fixed. Confirmed harmless (both definitions were `0x6C`), just a redundant define.
 - ~~**Unparenthesised macros in `util.h`.**~~ — fixed. `MAX`, `MIN`, `ABS` now have outer parens so they're safe as sub-expressions. They still evaluate their arguments more than once (documented in a comment), so still don't pass an expression with side effects.
 - **8-bit checksum on the wire protocol.** Single-bit error detection is only ~50%; CRC-8 is the same code size and dramatically more robust. The display-side protocol is constrained by compatibility, but the config-tool channel is the project's own.
-- **`process_write_config` length-check bypass.** `length` is read from the message but the checksum and memcpy operate on `sizeof(config_t)` regardless. A short `length` from the host causes reading past the received bytes.
+- ~~**`process_write_config` length-check bypass.**~~ — fixed. The checksum now validates exactly the bytes the host declared (`length`), not `sizeof(config_t)`. The memcpy into `g_config` was already correctly gated on `length == sizeof(config_t)`, so this was a checksum-validation bug (computed over stale buffer contents on a version mismatch) rather than a memory-safety one — `msg_len` is bounded by `BUFFER_SIZE` before this code runs, so it can't read out of bounds.
 - **`convert_wheel_speed_kph_to_rpm` uses float math on an 8051.** Pulls in the entire soft-float library for one cold-path conversion. Easily replaced with fixed-point.
 - **`flt_min_bat_volt_x100` only ratchets down.** Once the low-voltage filter drops on a sag, it can only rise on a new reading above the current filter — which the guard explicitly blocks. After one bad sag the LVC ramp engages permanently until reboot. Needs a slow rise term.
 - **Speed limit ramp range is fixed at 3 km/h.** Hard-coded in `SPEED_LIMIT_RAMP_DOWN_INTERVAL_KPH`. Riders running offroad with no real cap want this much smaller.
@@ -63,9 +63,9 @@ A quick review surfaced a number of issues worth addressing before adding featur
 ### Infrastructure gaps
 
 - ~~No CI.~~ — done. GitHub Actions builds BBSHD, BBS02, and TSDZ2 on every push.
-- ~~No unit tests.~~ — started. Host-side tests cover the pure-logic layer (`throttle.c`, `battery.c`, `util.h`) with mocked hardware inputs; `app.c` isn't covered yet.
+- ~~No unit tests.~~ — started. Host-side tests cover the pure-logic layer (`throttle.c`, `battery.c`, `cfgstore.c`, `util.h`) with mocked hardware inputs; `app.c` and `extcom.c` aren't covered yet — `extcom.c` in particular would need a much larger mocking surface (uart, sensors, motor, app) for the payoff so far.
 - No human-readable changelog tied to config version bumps. Users updating across versions have no idea what changed.
-- EEPROM config has no magic number — only `version + length + checksum`. A coincidental version match on a fresh chip with stale data can pass checksum.
+- ~~EEPROM config has no magic number~~ — fixed. A magic byte is now checked before version/length/checksum, so a fresh/erased chip or foreign data is rejected outright. One-time layout change made now, before any release ships, so there's no migration concern.
 
 ## The feature catalog
 
@@ -200,7 +200,7 @@ A possible order. Cheaper, safer, higher-impact features earlier; ambitious or r
 
 **Phase 0 — Infrastructure (no user-visible features).** ~~Fork the repo. Set up GitHub Actions building BBSHD, BBS02 and TSDZ2 hex files on every push. Get the build clean and the release pipeline boring. Document the build process well enough that someone else could reproduce it. Set up a host-side test target for the pure-logic functions.~~ Done. Decide on naming and licence stance — done (stays GPLv3, the fork is named bbs-fw-ai).
 
-**Phase 0.5 — Foundation cleanup (added, not in the original plan).** Before building features on top of a codebase, fix the mechanical, zero-hardware-risk defects and code-quality items above so feature work doesn't inherit them. The riskier defects (timing/motor-control code, the LVC ratchet bug, the wire-protocol checksum) are deliberately deferred to be fixed alongside the feature work that already requires hardware testing, rather than in isolation.
+**Phase 0.5 — Foundation cleanup (added, not in the original plan).** Before building features on top of a codebase, fix the mechanical, zero-hardware-risk defects and code-quality items above so feature work doesn't inherit them. Done in two passes: mechanical fixes with no hardware exposure first (macros, duplicated code, misspellings), then the wire-protocol/EEPROM robustness fixes since they're about to be touched repeatedly by config-version bumps anyway. The remaining defects (timing/motor-control code, the LVC ratchet bug) genuinely need a real controller on a bench, so they're deliberately deferred to be fixed alongside the feature work that already requires hardware testing, rather than in isolation.
 
 **Phase 1 — Smallest viable improvements.** #34 (temperature in repurposed display field) and #37 (configurable max cadence). One config field each, one display change each. Proves the release pipeline works end-to-end and gives early users a reason to try the fork.
 

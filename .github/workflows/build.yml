@@ -25,7 +25,7 @@ jobs:
         run: |
           echo "PATH=$PATH"
           echo "ENV_UNAME=[$UNAME]"
-          make -p -q -f Makefile TARGET_CONTROLLER=BBSHD 2>&1 | grep -A3 -B1 '^UNAME' || true
+          make -p echo TARGET_CONTROLLER=BBSHD 2>&1 | grep -A3 -B1 '^UNAME' || true
 
       - name: Build ${{ matrix.target }}
         working-directory: src/firmware

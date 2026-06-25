@@ -6,6 +6,7 @@ import {
 	type Configuration,
 } from './protocol/configuration'
 import { bindCheckbox, bindNumber, bindSelect, type Binding } from './ui/binding'
+import { createAssistLevelsEditor } from './ui/assistlevels'
 
 const TIMEOUT_MS = 5000
 
@@ -20,6 +21,12 @@ const validationErrorsEl = document.querySelector<HTMLUListElement>('#validation
 
 const connection = new BbsfwConnection()
 let config: Configuration = createDefaultConfiguration()
+
+const assistEditor = createAssistLevelsEditor(
+	document.querySelector<HTMLDivElement>('#assist-levels')!,
+	() => config,
+	() => connection.controller,
+)
 
 // matches ConfigurationViewModel.cs's KphToMph/MphToKph exactly
 function kphToMph(kph: number): number {
@@ -154,6 +161,7 @@ function updateUnitLabels(): void {
 function refreshForm(): void {
 	bindings.forEach((b) => b.refresh())
 	updateUnitLabels()
+	assistEditor.render()
 }
 
 function setStatus(text: string): void {

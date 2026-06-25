@@ -49,3 +49,76 @@ fieldset legend {
 #not-supported {
 	color: #b00020;
 }
+
+/* Assist-level editor: a master-detail block that spans the whole form width
+   and manages its own layout, so opt out of the generic fieldset grid. */
+#assist-fieldset {
+	grid-column: 1 / -1;
+	display: block;
+}
+
+.assist-grid {
+	display: grid;
+	grid-template-columns: minmax(180px, 240px) 1fr;
+	gap: 1.5rem;
+	align-items: start;
+}
+
+.assist-level-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin-top: 0.5rem;
+}
+
+.assist-level-item {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	text-align: left;
+	padding: 0.4rem 0.6rem;
+	border: 1px solid #8884;
+	border-radius: 4px;
+	background: transparent;
+	cursor: pointer;
+	font: inherit;
+}
+
+.assist-level-item.selected {
+	border-color: #4a90d9;
+	background: #4a90d922;
+}
+
+.assist-level-item-title {
+	font-weight: bold;
+}
+
+.assist-level-item-type {
+	font-size: 0.85em;
+	opacity: 0.75;
+}
+
+.assist-level-editor-title {
+	font-weight: bold;
+	font-size: 1.1em;
+	margin-bottom: 0.5rem;
+}
+
+.assist-row {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 0.5rem 1rem;
+	align-items: center;
+	margin-bottom: 0.4rem;
+}
+
+.assist-footer {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 0.5rem 1rem;
+	align-items: center;
+	max-width: 420px;
+	margin-top: 1.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid #8884;
+}

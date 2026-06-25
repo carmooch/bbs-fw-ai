@@ -12,7 +12,7 @@
 static int test_throttle_maps_full_range(void)
 {
 	mock_reset();
-	throttle_init(MIN_MV, MAX_MV);
+	throttle_init(MIN_MV, MAX_MV, 0);
 
 	mock_set_throttle_adc(MIN_ADC);
 	ASSERT_EQ(1, throttle_read());
@@ -26,7 +26,7 @@ static int test_throttle_maps_full_range(void)
 static int test_throttle_low_end_hysteresis_and_cutoff(void)
 {
 	mock_reset();
-	throttle_init(MIN_MV, MAX_MV);
+	throttle_init(MIN_MV, MAX_MV, 0);
 
 	// Run up to full throttle first so the hysteresis nudge below has
 	// a nonzero previous reading to react to.
@@ -57,7 +57,7 @@ static int test_throttle_hard_limit_fault_after_tolerance(void)
 {
 	mock_reset();
 	mock_set_ms(1000);
-	throttle_init(MIN_MV, MAX_MV);
+	throttle_init(MIN_MV, MAX_MV, 0);
 
 	// throttle_ok() requires a below-minimum reading to have been seen at
 	// least once (throttle_low_ok) before it will report OK. Released
@@ -98,10 +98,49 @@ static int test_throttle_map_response_uses_custom_curve(void)
 	return 1;
 }
 
+static int test_throttle_upper_deadband_reaches_full_early(void)
+{
+	mock_reset();
+	// 10% upper deadband. range = MAX_ADC - MIN_ADC = 164;
+	// reduction = 164 * 10 / 100 = 16; effective max = 220 - 16 = 204.
+	throttle_init(MIN_MV, MAX_MV, 10);
+
+	// at the lowered effective max, throttle already reads 100%
+	mock_set_throttle_adc(204);
+	ASSERT_EQ(100, throttle_read());
+
+	// the whole deadband region (above the effective max) also reads 100%
+	mock_set_throttle_adc(MAX_ADC);
+	ASSERT_EQ(100, throttle_read());
+
+	// just below the effective max it is still under 100% (deadband starts at 204)
+	mock_set_throttle_adc(203);
+	ASSERT_TRUE(throttle_read() < 100);
+
+	return 1;
+}
+
+static int test_throttle_zero_deadband_matches_full_travel(void)
+{
+	mock_reset();
+	throttle_init(MIN_MV, MAX_MV, 0);
+
+	// with no deadband, 100% is only reached at the true max travel
+	mock_set_throttle_adc(MAX_ADC - 1);
+	ASSERT_TRUE(throttle_read() < 100);
+
+	mock_set_throttle_adc(MAX_ADC);
+	ASSERT_EQ(100, throttle_read());
+
+	return 1;
+}
+
 void test_throttle_run(void)
 {
 	RUN_TEST(test_throttle_maps_full_range);
 	RUN_TEST(test_throttle_low_end_hysteresis_and_cutoff);
 	RUN_TEST(test_throttle_hard_limit_fault_after_tolerance);
 	RUN_TEST(test_throttle_map_response_uses_custom_curve);
+	RUN_TEST(test_throttle_upper_deadband_reaches_full_early);
+	RUN_TEST(test_throttle_zero_deadband_matches_full_travel);
 }

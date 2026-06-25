@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-void throttle_init(uint16_t min_mv, uint16_t max_mv);
+void throttle_init(uint16_t min_mv, uint16_t max_mv, uint8_t upper_deadband_percent);
 
 bool throttle_ok();
 uint8_t throttle_read();

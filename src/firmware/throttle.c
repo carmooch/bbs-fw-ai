@@ -45,10 +45,19 @@ static const uint8_t throttle_custom_map_lut[101] =
 
 
 
-void throttle_init(uint16_t min_mv, uint16_t max_mv)
+void throttle_init(uint16_t min_mv, uint16_t max_mv, uint8_t upper_deadband_percent)
 {
 	min_voltage_adc = (uint8_t)(((uint32_t)min_mv * 256) / ADC_VOLTAGE_MV);
 	max_voltage_adc = (uint8_t)(((uint32_t)max_mv * 256) / ADC_VOLTAGE_MV);
+
+	// Upper deadband: pull the effective max down so the top `upper_deadband_percent`
+	// of throttle travel all reads as 100%. Cheap hall throttles often don't quite
+	// reach their nominal max voltage, so this makes full power reliably attainable.
+	// The rest of throttle_read() is unchanged: it clamps to max_voltage_adc and
+	// maps min..max -> 1..100, so lowering max alone produces the deadband.
+	uint8_t range_adc = max_voltage_adc - min_voltage_adc;
+	max_voltage_adc -= (uint8_t)(((uint16_t)range_adc * upper_deadband_percent) / 100);
+
 	throttle_detected = false;
 	throttle_low_ok = false;
 	throttle_hard_ok = true;

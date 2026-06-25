@@ -402,6 +402,19 @@ namespace BBSFW.ViewModel
 			}
 		}
 
+		public uint ThrottleUpperDeadbandPercent
+		{
+			get { return _config.ThrottleUpperDeadbandPercent; }
+			set
+			{
+				if (_config.ThrottleUpperDeadbandPercent != value)
+				{
+					_config.ThrottleUpperDeadbandPercent = value;
+					OnPropertyChanged(nameof(ThrottleUpperDeadbandPercent));
+				}
+			}
+		}
+
 
 
 		public uint PasStartDelayDegrees

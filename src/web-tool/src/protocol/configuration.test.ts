@@ -71,6 +71,7 @@ describe('writeConfiguration / parseConfiguration round trip', () => {
 
 		cfg.displayRangeField = DisplayRangeFieldData.Temperature
 		cfg.maxCadenceRpm = 168
+		cfg.throttleUpperDeadbandPercent = 8
 
 		const roundTripped = parseConfiguration(writeConfiguration(cfg))
 

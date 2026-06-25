@@ -202,6 +202,7 @@ static void load_default_config()
 	g_config.throttle_start_percent = 1;
 	g_config.throttle_global_spd_lim_opt = THROTTLE_GLOBAL_SPEED_LIMIT_DISABLED;
 	g_config.throttle_global_spd_lim_percent = 100;
+	g_config.throttle_upper_deadband_percent = 0; // 0 = reach 100% only at full travel (unchanged behavior)
 
 	g_config.shift_interrupt_duration_ms_u16l = (uint8_t)600;
 	g_config.shift_interrupt_duration_ms_u16h = (uint8_t)(600 >> 8);

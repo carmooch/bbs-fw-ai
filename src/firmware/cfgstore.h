@@ -54,7 +54,7 @@
 #define LIGHTS_MODE_ALWAYS_ON			2
 #define LIGHTS_MODE_BRAKE_LIGHT			3
 
-#define CONFIG_VERSION					6
+#define CONFIG_VERSION					7
 #define PSTATE_VERSION					1
 
 
@@ -129,6 +129,9 @@ typedef struct
 	// display
 	uint8_t display_range_field_data;
 	uint8_t max_cadence_rpm;
+
+	// throttle (continued)
+	uint8_t throttle_upper_deadband_percent;
 } config_t;
 
 typedef struct

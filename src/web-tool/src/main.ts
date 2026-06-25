@@ -123,6 +123,7 @@ function setupBindings(): void {
 	bind(bindNumber(el('throttleStartPercent'), () => config.throttleStartPercent, (v) => (config.throttleStartPercent = v)))
 	bind(bindSelect(el('throttleGlobalSpeedLimit'), () => config.throttleGlobalSpeedLimit, (v) => (config.throttleGlobalSpeedLimit = v)))
 	bind(bindNumber(el('throttleGlobalSpeedLimitPercent'), () => config.throttleGlobalSpeedLimitPercent, (v) => (config.throttleGlobalSpeedLimitPercent = v)))
+	bind(bindNumber(el('throttleUpperDeadbandPercent'), () => config.throttleUpperDeadbandPercent, (v) => (config.throttleUpperDeadbandPercent = v)))
 
 	bind(bindNumber(el('pasStartDelayPulses'), () => config.pasStartDelayPulses, (v) => (config.pasStartDelayPulses = v)))
 	bind(bindNumber(el('pasStopDelayMilliseconds'), () => config.pasStopDelayMilliseconds, (v) => (config.pasStopDelayMilliseconds = v)))

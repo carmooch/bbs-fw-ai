@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { BbsfwConnection } from './connection'
-import { createDefaultConfiguration, writeConfiguration } from './configuration'
+import { CONFIG_VERSION, createDefaultConfiguration, writeConfiguration } from './configuration'
 import { computeChecksum } from './checksum'
 
 // These exercise the byte-level message framing/parsing state machine
@@ -42,7 +42,7 @@ describe('BbsfwConnection read config', () => {
 		const pending = connection.readConfiguration(1000)
 
 		const cfgBytes = writeConfiguration(cfg)
-		const header = [0x01, 0x03, 6, cfgBytes.length] // RESPONSE_TYPE_READ, OPCODE_READ_CONFIG, version, length
+		const header = [0x01, 0x03, CONFIG_VERSION, cfgBytes.length] // RESPONSE_TYPE_READ, OPCODE_READ_CONFIG, version, length
 		const withoutChecksum = [...header, ...cfgBytes]
 		const message = [...withoutChecksum, computeChecksum(withoutChecksum, withoutChecksum.length)]
 
@@ -60,7 +60,7 @@ describe('BbsfwConnection read config', () => {
 		const pending = connection.readConfiguration(150)
 
 		const cfgBytes = writeConfiguration(createDefaultConfiguration())
-		const header = [0x01, 0x03, 6, cfgBytes.length]
+		const header = [0x01, 0x03, CONFIG_VERSION, cfgBytes.length]
 		const corruptChecksum = (computeChecksum([...header, ...cfgBytes], header.length + cfgBytes.length) + 1) & 0xff
 		feed(connection, [...header, ...cfgBytes, corruptChecksum])
 
@@ -76,7 +76,7 @@ describe('BbsfwConnection read config', () => {
 		const pending = connection.readConfiguration(150)
 
 		const cfgBytes = writeConfiguration(createDefaultConfiguration())
-		const header = [0x01, 0x03, 5, cfgBytes.length] // version 5 -- not the only version this fork supports (6)
+		const header = [0x01, 0x03, 5, cfgBytes.length] // version 5 -- below the current CONFIG_VERSION, so unsupported
 		const message = [...header, ...cfgBytes, computeChecksum([...header, ...cfgBytes], header.length + cfgBytes.length)]
 		feed(connection, message)
 
@@ -92,7 +92,7 @@ describe('BbsfwConnection read config', () => {
 		const pending = connection.readConfiguration(1000)
 
 		const cfgBytes = writeConfiguration(cfg)
-		const header = [0x01, 0x03, 6, cfgBytes.length]
+		const header = [0x01, 0x03, CONFIG_VERSION, cfgBytes.length]
 		const withoutChecksum = [...header, ...cfgBytes]
 		const message = [...withoutChecksum, computeChecksum(withoutChecksum, withoutChecksum.length)]
 
@@ -110,7 +110,7 @@ describe('BbsfwConnection write config', () => {
 	it('sends the correctly framed request and resolves true on success', async () => {
 		const connection = new BbsfwConnection()
 		const sent = withFakeWriter(connection)
-		;(connection as any).configVersion = 6
+		;(connection as any).configVersion = CONFIG_VERSION
 
 		const cfg = createDefaultConfiguration()
 		cfg.maxCurrentAmps = 25
@@ -118,7 +118,7 @@ describe('BbsfwConnection write config', () => {
 		const pending = connection.writeConfiguration(cfg, 1000)
 
 		expect(sent.length).toBe(1)
-		const expectedBody = [0x02, 0xf1, 6, writeConfiguration(cfg).length, ...writeConfiguration(cfg)]
+		const expectedBody = [0x02, 0xf1, CONFIG_VERSION, writeConfiguration(cfg).length, ...writeConfiguration(cfg)]
 		expect(sent[0]).toEqual([...expectedBody, computeChecksum(expectedBody, expectedBody.length)])
 
 		// RESPONSE_TYPE_WRITE, OPCODE_WRITE_CONFIG, success=1

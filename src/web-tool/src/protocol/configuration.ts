@@ -4,8 +4,8 @@
 // src/firmware/cfgstore.h exactly: the wire protocol is a raw byte dump of
 // that struct, not a tagged/named format.
 
-export const CONFIG_VERSION = 6
-export const CONFIG_BYTE_SIZE = 156
+export const CONFIG_VERSION = 7
+export const CONFIG_BYTE_SIZE = 157
 
 export enum Controller {
 	Unknown = 0,
@@ -145,6 +145,8 @@ export interface Configuration {
 
 	displayRangeField: DisplayRangeFieldData
 	maxCadenceRpm: number
+
+	throttleUpperDeadbandPercent: number
 }
 
 function createDefaultAssistLevel(): AssistLevel {
@@ -206,6 +208,8 @@ export function createDefaultConfiguration(): Configuration {
 
 		displayRangeField: DisplayRangeFieldData.Zero,
 		maxCadenceRpm: 0,
+
+		throttleUpperDeadbandPercent: 0,
 	}
 }
 
@@ -320,6 +324,8 @@ export function parseConfiguration(buffer: Uint8Array): Configuration {
 
 		displayRangeField: DisplayRangeFieldData.Zero,
 		maxCadenceRpm: 0,
+
+		throttleUpperDeadbandPercent: 0,
 	}
 
 	for (let i = 0; i < 10; ++i) {
@@ -331,6 +337,7 @@ export function parseConfiguration(buffer: Uint8Array): Configuration {
 
 	cfg.displayRangeField = r.byte()
 	cfg.maxCadenceRpm = r.byte()
+	cfg.throttleUpperDeadbandPercent = r.byte()
 
 	return cfg
 }
@@ -385,6 +392,7 @@ export function writeConfiguration(cfg: Configuration): Uint8Array {
 
 	w.byte(cfg.displayRangeField)
 	w.byte(cfg.maxCadenceRpm)
+	w.byte(cfg.throttleUpperDeadbandPercent)
 
 	return w.toBytes()
 }
@@ -421,6 +429,7 @@ export function validateConfiguration(cfg: Configuration, controller: Controller
 	checkLimits(cfg.throttleEndMillivolts, 2500, 5000, 'Throttle End (mV)', errors)
 	checkLimits(cfg.throttleStartPercent, 0, 100, 'Throttle Start (%)', errors)
 	checkLimits(cfg.throttleGlobalSpeedLimitPercent, 0, 100, 'Throttle Global Speed Limit (%)', errors)
+	checkLimits(cfg.throttleUpperDeadbandPercent, 0, 50, 'Throttle Upper Deadband (%)', errors)
 
 	checkLimits(cfg.shiftInterruptDuration, 50, 2000, 'Shift Interrupt Duration (ms)', errors)
 	checkLimits(cfg.shiftInterruptCurrentThresholdPercent, 0, 100, 'Shift Interrupt Current Threshold (%)', errors)

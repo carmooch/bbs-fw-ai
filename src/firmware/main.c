@@ -58,7 +58,8 @@ void main(void)
 	battery_init();
 	throttle_init(
 		EXPAND_U16(g_config.throttle_start_voltage_mv_u16h, g_config.throttle_start_voltage_mv_u16l),
-		EXPAND_U16(g_config.throttle_end_voltage_mv_u16h, g_config.throttle_end_voltage_mv_u16l)
+		EXPAND_U16(g_config.throttle_end_voltage_mv_u16h, g_config.throttle_end_voltage_mv_u16l),
+		g_config.throttle_upper_deadband_percent
 	);
 
 	motor_init(g_config.max_current_amps * 1000, g_config.low_cut_off_v,

@@ -41,9 +41,9 @@ marked done only once it has been checked against the code and at least bench-te
 ## Phases
 
 **0. Foundations** (no behaviour change)
-- [ ] `.gitattributes` plus a CI check that rejects line-ending-only changes, so diffs against upstream stay readable
-- [ ] CI: build the BBSHD hex and run the host tests
-- [ ] Host test harness with a fake hardware layer that can link `app.c`
+- [x] `.gitattributes` plus a CI check that rejects line-ending-only changes, so diffs against upstream stay readable
+- [x] CI: build the BBSHD hex and run the host tests
+- [x] Host test harness with a fake hardware layer that can link `app.c`
 - [ ] Ride simulator: scenario scripts in, CSV and plot of target current out
 
 **1. Reliability.** Each fix is proven by a failing test first.

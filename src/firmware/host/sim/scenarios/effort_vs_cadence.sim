@@ -1,0 +1,17 @@
+title Same speed, easy spin vs hard pedalling (level 3)
+
+# The rider holds roughly 19 km/h. First an easy 50 rpm in a tall gear,
+# then drops two gears and spins 90 rpm. A torque-sensor bike would help
+# more when the rider works harder; this shows what a cadence-only PAS does.
+at 1000 gear 2.6
+at 1000 cadence 50 over 600
+at 6000 gear 1.45
+at 6000 cadence 90 over 400
+at 11000 cadence 0
+
+end 12000
+
+# Baseline: harder, faster pedalling gets *less* assist ("keep current"
+# tapers above 40 rpm), the opposite of a torque-sensor feel.
+expect 5000 current == 14
+expect 10000 current == 12

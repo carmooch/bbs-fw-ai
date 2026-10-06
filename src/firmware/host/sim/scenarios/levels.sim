@@ -1,0 +1,18 @@
+title Step through assist levels 1-5 while pedalling at 70 rpm
+
+at 0 level 1
+at 1000 cadence 70 over 500
+at 3000 level 2
+at 5000 level 3
+at 7000 level 4
+at 9000 level 5
+at 11000 cadence 0
+
+end 12000
+
+# Default level currents (7/10/14/19/26%), trimmed by "keep current" at 70 rpm.
+expect 2900 current == 7
+expect 4900 current == 10
+expect 6900 current == 13
+expect 8900 current == 18
+expect 10900 current == 24

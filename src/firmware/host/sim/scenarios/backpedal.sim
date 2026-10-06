@@ -1,0 +1,12 @@
+title Pedal backwards, then forwards (level 3)
+
+at 1000 cadence -50 over 300
+at 3000 cadence 0
+at 4000 cadence 60 over 300
+at 6000 cadence 0
+
+end 7000
+
+expect 2000 current == 0
+expect 2000 motor == 0
+expect 5000 current == 14

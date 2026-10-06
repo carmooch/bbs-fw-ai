@@ -4,6 +4,12 @@
 // battery.c, cfgstore.c, eventlog.c) call, backed by one plain struct.
 // Tests and the ride simulator set the inputs directly and read back what
 // the firmware commanded.
+//
+// Sensors come in two flavours:
+// - Unit tests link fake_sensors.c, which returns the "sensor values" below
+//   (pas_*, wheel_rpm_x10, brake, ...) as-is.
+// - The ride simulator links the real bbsx/sensors.c and drives its input
+//   pins instead (fake_pins.c), so those fields are unused there.
 
 #ifndef _FAKE_HW_H_
 #define _FAKE_HW_H_
@@ -20,6 +26,12 @@ typedef struct
 	uint32_t now_ms;
 
 	uint8_t throttle_adc;
+
+	// raw ADC counts read by the real sensors.c; 0 reads as "no sensor" (0 C)
+	uint16_t adc_temperature_contr;
+	uint16_t adc_temperature_motor;
+
+	// --- sensor values (fake_sensors.c only) ---
 	bool brake;
 	bool shift;
 
@@ -30,12 +42,13 @@ typedef struct
 
 	uint16_t wheel_rpm_x10;
 
+	int16_t temperature_contr_x100;
+	int16_t temperature_motor_x100;
+
+	// --- motor controller readings ---
 	uint16_t battery_voltage_x10;
 	uint16_t battery_current_x10;
 	uint16_t motor_status;
-
-	int16_t temperature_contr_x100;
-	int16_t temperature_motor_x100;
 
 	// --- outputs (what the firmware commanded) ---
 	bool motor_enabled;

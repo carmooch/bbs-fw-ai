@@ -34,24 +34,10 @@ uint32_t system_ms() { return g_hw.now_ms; }
 
 uint8_t adc_get_throttle() { return g_hw.throttle_adc; }
 
-// --- sensors ---
+// --- adc (only the temperature channels are read outside sensors.c) ---
 
-bool brake_is_activated() { return g_hw.brake; }
-bool shift_sensor_is_activated() { return g_hw.shift; }
-
-bool pas_is_pedaling_forwards() { return g_hw.pas_forwards; }
-bool pas_is_pedaling_backwards() { return g_hw.pas_backwards; }
-uint16_t pas_get_cadence_rpm_x10() { return g_hw.pas_cadence_rpm_x10; }
-uint16_t pas_get_pulse_counter() { return g_hw.pas_pulse_counter; }
-
-uint16_t speed_sensor_get_rpm_x10() { return g_hw.wheel_rpm_x10; }
-bool speed_sensor_is_moving() { return g_hw.wheel_rpm_x10 > 0; }
-
-bool torque_sensor_ok() { return true; }
-uint16_t torque_sensor_get_nm_x100() { return 0; }
-
-int16_t temperature_contr_x100() { return g_hw.temperature_contr_x100; }
-int16_t temperature_motor_x100() { return g_hw.temperature_motor_x100; }
+uint16_t adc_get_temperature_contr() { return g_hw.adc_temperature_contr; }
+uint16_t adc_get_temperature_motor() { return g_hw.adc_temperature_motor; }
 
 // --- motor ---
 

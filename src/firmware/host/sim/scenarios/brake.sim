@@ -1,0 +1,13 @@
+title Brake while pedalling, then release (level 3)
+
+at 1000 cadence 70 over 500
+at 4000 brake 1
+at 5000 brake 0
+at 7000 cadence 0
+
+end 8000
+
+# The brake cuts assist on the next 5ms tick; it comes back after release.
+expect 4005 current == 0
+expect 4500 current == 0
+expect 6000 current == 13

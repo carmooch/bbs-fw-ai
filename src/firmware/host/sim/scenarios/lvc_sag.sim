@@ -1,0 +1,22 @@
+title 52V battery near empty (48V resting), level 9: a 3 s climb sags it to 44V
+
+# 14s pack: 58.8V full, 42V cutoff. The low-voltage limit eases power off
+# between 44.8V and 43.3V, but it acts on the *lowest* voltage it has seen
+# (a slow filter that only moves down). One sag on a climb therefore keeps
+# power reduced after the battery recovers, until the controller restarts.
+config max_battery_x100v 5880
+config low_cut_off_v 42
+
+at 0 level 9
+at 0 voltage 48
+at 1000 cadence 70 over 500
+at 5000 voltage 44
+at 8000 voltage 48
+at 30000 cadence 0
+
+end 31000
+
+# Baseline: 26.7A before the sag, 21.3A after it, for the rest of the ride.
+expect 4900 current == 89
+expect 7900 current < 89
+expect 29900 current == 71

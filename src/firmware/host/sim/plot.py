@@ -12,6 +12,7 @@ change can be compared against a baseline.
 import argparse
 import csv
 import html
+import math
 import sys
 
 COLOURS = ["#1f6feb", "#d1242f", "#1a7f37", "#8250df", "#bf8700"]
@@ -93,14 +94,20 @@ def main():
     if t1 <= t0:
         t1 = t0 + 1
 
+    # (label, [(column, dash)], axis starts at zero)
     panels = [
         ("Cadence (rpm): rider solid, firmware dashed",
-         [("cadence_rpm", ""), ("fw_cadence_rpm", "5 4")]),
+         [("cadence_rpm", ""), ("fw_cadence_rpm", "5 4")], True),
         ("Wheel speed (km/h): actual solid, firmware dashed",
-         [("speed_kph", ""), ("fw_speed_kph", "5 4")]),
+         [("speed_kph", ""), ("fw_speed_kph", "5 4")], True),
         ("Motor current requested (A)",
-         [("current_a", "")]),
+         [("current_a", "")], True),
+        ("Battery voltage (V)",
+         [("voltage_v", "")], False),
     ]
+
+    # skip panels whose columns an older CSV doesn't have
+    panels = [pn for pn in panels if all(key in rows[0] for _, _, rows in runs for key, _ in pn[1])]
 
     height = TOP + len(panels) * PANEL_H + (len(panels) - 1) * GAP + BOTTOM
     plot_w = WIDTH - LEFT - RIGHT
@@ -123,18 +130,33 @@ def main():
         if lx > WIDTH - 200:
             lx = LEFT
 
-    for p, (label, series) in enumerate(panels):
+    for p, (label, series, from_zero) in enumerate(panels):
         top = TOP + p * (PANEL_H + GAP)
         bottom = top + PANEL_H
 
-        step, vmax = axis(max(max(r[key] for r in rows) for _, _, rows in runs for key, _ in series), 4)
+        values = [r[key] for _, _, rows in runs for r in rows for key, _ in series]
+        if from_zero:
+            vmin = 0.0
+            step, vmax = axis(max(values), 4)
+        else:
+            # zoom to the data (at least 2 units tall), on round tick values
+            lo, hi = min(values), max(values)
+            if hi - lo < 2:
+                mid = (lo + hi) / 2
+                lo, hi = mid - 1, mid + 1
+            step, _ = axis(hi - lo, 4)
+            vmin = step * math.floor(lo / step)
+            vmax = vmin + step
+            while vmax < hi - 1e-9:
+                vmax += step
 
-        def y_of(v, top=top, vmax=vmax):
-            return top + PANEL_H - (v / vmax) * PANEL_H
+        def y_of(v, top=top, vmin=vmin, vmax=vmax):
+            return top + PANEL_H - ((v - vmin) / (vmax - vmin)) * PANEL_H
 
         out.append(f'<text x="{LEFT}" y="{top - 8}" fill="#1f2328" font-weight="600">{html.escape(label)}</text>')
 
-        for v in ticks(step, vmax):
+        for v in ticks(step, vmax - vmin):
+            v += vmin
             y = y_of(v)
             out.append(f'<line x1="{LEFT}" x2="{WIDTH - RIGHT}" y1="{y:.1f}" y2="{y:.1f}" stroke="#d0d7de" stroke-width="1"/>')
             out.append(f'<text x="{LEFT - 6}" y="{y + 4:.1f}" fill="#59636e" text-anchor="end">{fmt(v)}</text>')
@@ -148,7 +170,7 @@ def main():
                            f'stroke-width="1.6"{dash_attr} stroke-linejoin="round"/>')
 
             # brake intervals as a band along the bottom of the current panel
-            if p == len(panels) - 1:
+            if series[0][0] == "current_a":
                 start = None
                 for r in rows + [{"t_ms": rows[-1]["t_ms"], "brake": 0}]:
                     if r["brake"] and start is None:

@@ -534,6 +534,8 @@ static bool check_expects(const scenario_t* s)
 		case OUTPUT_CURRENT: actual = at->current_pct; break;
 		case OUTPUT_MOTOR: actual = at->motor_on; break;
 		case OUTPUT_FW_CADENCE: actual = at->fw_cadence_rpm; break;
+		case OUTPUT_TARGET_SPEED: actual = at->target_speed_pct; break;
+		case OUTPUT_COUNT: break;
 		}
 
 		bool pass = false;

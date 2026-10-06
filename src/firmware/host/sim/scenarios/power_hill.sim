@@ -1,0 +1,21 @@
+title Power-based level 3 on a 4% hill: rider eases at 100 W, then pushes 250 W (physics)
+
+# Level 3 in power mode (flags 0x81 = PAS | PAS_POWER): 100 W + 2 W/rpm x
+# cadence from the battery, capped at 60%. Same gear throughout, so harder
+# pedalling means a higher cadence and more assist. With the standard fixed
+# current (14%) the motor gives 175 W at both efforts.
+config pas_keep_current_percent 100
+config level 3 flags 129
+config level 3 target_current_percent 60
+
+at 0 level 3
+at 0 grade 4
+at 0 gear 1.6
+at 1000 rider_w 100
+at 21000 rider_w 250
+
+end 41000
+
+# ~200 W of motor at 100 W of rider (16%), ~260 W at 250 W (21%).
+expect 20000 current == 16
+expect 40000 current == 21

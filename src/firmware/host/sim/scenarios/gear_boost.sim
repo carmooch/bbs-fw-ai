@@ -1,0 +1,22 @@
+title Gear-aware boost: level 3 at 70 rpm in a low, middle and high gear
+
+# gear_boost_max_percent 50: full boost at a wheel/crank ratio of 1.2 or
+# lower, none at 3.0 or higher, linear in between. Keep-current is off so
+# only the boost changes the current. Level 3 is 14%.
+config pas_keep_current_percent 100
+config gear_boost_max_percent 50
+config gear_ratio_low_x10 12
+config gear_ratio_high_x10 30
+
+at 0 gear 1.2
+at 1000 cadence 70 over 300
+at 5000 gear 2.1
+at 9000 gear 3.0
+at 13000 cadence 0
+
+end 14000
+
+# 14% x 1.5 = 21% in low gear; 25% boost (17%) in the middle; none in high gear.
+expect 4900 current == 21
+expect 8900 current == 17
+expect 12900 current == 14

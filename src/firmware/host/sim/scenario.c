@@ -11,7 +11,7 @@ static const char* input_names[INPUT_COUNT] =
 	"cadence", "gear", "speed", "throttle", "brake", "level", "voltage", "rider_w", "grade"
 };
 
-static const char* output_names[] = { "current", "motor", "fw_cadence" };
+static const char* output_names[OUTPUT_COUNT] = { "current", "motor", "fw_cadence", "target_speed" };
 static const char* op_names[] = { "==", "!=", "<", "<=", ">", ">=" };
 
 const char* input_name(input_t input) { return input_names[input]; }
@@ -198,7 +198,7 @@ bool scenario_load(const char* path, scenario_t* s)
 			if (n != 5 || !parse_ms(words[1], &x->at_ms))
 				FAIL("expected: expect <ms> <output> <op> <value>");
 
-			int output = lookup(words[2], output_names, 3);
+			int output = lookup(words[2], output_names, OUTPUT_COUNT);
 			if (output < 0)
 				FAIL("unknown output '%s'", words[2]);
 			x->output = (output_t)output;

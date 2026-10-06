@@ -24,7 +24,8 @@
 // and motor power against rolling resistance, air and the grade, and cadence
 // follows from speed and gear while rider_w > 0.
 // Outputs: current (target current, %), motor (enabled 0/1),
-//          fw_cadence (rpm, as measured by the firmware)
+//          fw_cadence (rpm, as measured by the firmware),
+//          target_speed (motor speed cap, % of its maximum)
 
 #ifndef _SCENARIO_H_
 #define _SCENARIO_H_
@@ -51,6 +52,8 @@ typedef enum
 	OUTPUT_CURRENT,
 	OUTPUT_MOTOR,
 	OUTPUT_FW_CADENCE,
+	OUTPUT_TARGET_SPEED,
+	OUTPUT_COUNT
 } output_t;
 
 typedef enum { OP_EQ, OP_NE, OP_LT, OP_LE, OP_GT, OP_GE } op_t;

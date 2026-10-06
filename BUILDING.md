@@ -91,6 +91,16 @@ The bike model is deliberately simple. Keep these in mind when reading results:
 - Temperature reads 0 °C, so thermal limiting never engages. The motor controller's own
   behaviour, including its current loop and speed limit, isn't modelled at all.
 
+## Config tool
+
+`src/tool` is the Windows (WPF) config tool. CI publishes it from `windows-latest` as the
+`BBSFWTool` artifact.
+
+`src/tool-check/check.sh` checks the tool against the firmware without Windows: it dumps a
+`config_t` from C, then the tool's own Model/ViewModel code (built against the WPF reference
+assemblies) has to parse it into the right fields and write it back byte-for-byte. Run it whenever
+the config layout changes. It needs gcc and the .NET 8 SDK.
+
 ## Line endings
 
 Upstream files are a mix of CRLF and LF. Keep each file's existing line endings:
@@ -103,4 +113,5 @@ Upstream files are a mix of CRLF and LF. Keep each file's existing line endings:
 - Builds the BBSHD hex. It's uploaded as an artifact, with memory usage in the run summary.
 - Runs the unit tests and every ride scenario. Scenario results go in the run summary, and the
   CSVs and plots are uploaded as the `ride-sim` artifact.
+- Checks the config tool against the firmware's config layout, and publishes the tool.
 - Runs the line-ending check.

@@ -9,9 +9,10 @@
 #ifndef _VERSION_H_
 #define _VERSION_H_
 
-#define VERSION_MAJOR		1
-#define VERSION_MINOR		5
-#define VERSION_PATCH		99
+// bbs-fw-ai fork versions start at 2.0.0 so they're never mistaken for upstream 1.x
+#define VERSION_MAJOR		2
+#define VERSION_MINOR		0
+#define VERSION_PATCH		0
 
 
 #if defined(BBSHD)

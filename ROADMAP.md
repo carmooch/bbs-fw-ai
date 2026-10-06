@@ -20,6 +20,21 @@ torque-sensor bike feel natural, and what this hardware can do about each:
 | Smooth, never jerky | Shaped ramps instead of fixed 1%-per-step linear ones; gentle, quick launch from standstill |
 | Low effort gives little help | Low start level and a curve that stays low at easy cadence, so soft-pedalling doesn't surge |
 
+### Where the bike starts (measured in the simulator)
+
+With the default config at level 3, the baseline scenarios in `src/firmware/host/sim/scenarios` show:
+
+- **Late start.** Assist waits for 6 PAS pulses, which is 90° of crank, whether the bike is
+  parked or already rolling at 20 km/h. Pulling away gently, that's about 0.6 s.
+- **Late stop.** Assist stays at full for about 170 ms after the pedals stop, until a 200 ms
+  "no pulse" timeout runs out. At 70 rpm a pulse is due every 36 ms, so the firmware could know
+  much sooner.
+- **Effort is ignored, or worse.** At the same speed, spinning hard at 90 rpm gets 12% current;
+  an easy 50 rpm gets 14%. The "keep current" setting tapers assist down as cadence rises.
+
+Each of these has an `expect` line pinned to today's numbers, so every improvement shows up as a
+deliberate, reviewed change to a baseline.
+
 There's also an experimental idea: inferring effort from the cadence ripple within each pedal
 stroke, or from speed and acceleration. It may or may not work, so it only gets built after
 real ride data shows a usable signal.
@@ -44,7 +59,7 @@ marked done only once it has been checked against the code and at least bench-te
 - [x] `.gitattributes` plus a CI check that rejects line-ending-only changes, so diffs against upstream stay readable
 - [x] CI: build the BBSHD hex and run the host tests
 - [x] Host test harness with a fake hardware layer that can link `app.c`
-- [ ] Ride simulator: scenario scripts in, CSV and plot of target current out
+- [x] Ride simulator: scenario scripts in, CSV and plot of target current out
 
 **1. Reliability.** Each fix is proven by a failing test first.
 - [ ] `system_delay_ms` uses `!=`, so it can spin for about 49 days if the target tick is skipped

@@ -36,15 +36,37 @@ jobs:
           path: src/firmware/bbs-fw.hex
           if-no-files-found: error
 
-  host-tests:
-    name: Host tests
+  host:
+    name: Host tests and ride simulator
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run
-        working-directory: src/firmware/test
-        run: make run
+      - name: Unit tests
+        working-directory: src/firmware/host
+        run: make test
+
+      - name: Ride scenarios
+        working-directory: src/firmware/host
+        run: |
+          echo '### Ride scenarios' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          status=0
+          make sim 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || status=1
+          [ "${PIPESTATUS[0]}" -eq 0 ] || status=1
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      - name: Plots
+        if: always()
+        working-directory: src/firmware/host
+        run: make plots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ride-sim
+          path: src/firmware/host/out/
 
   line-endings:
     name: Line endings

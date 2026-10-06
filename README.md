@@ -1,5 +1,5 @@
 > **bbs-fw-ai** is a personal fork of this firmware for one BBSHD + SW102T, aiming to make a
-> cadence-sensor bike feel closer to a torque-sensor one. See [ROADMAP.md](ROADMAP.md).
+> cadence-sensor bike feel closer to a torque-sensor one. See [ROADMAP.md](ROADMAP.md) and [BUILDING.md](BUILDING.md).
 > Untested builds from this fork are not meant for anyone else's bike.
 > Everything below is the original upstream README.
 

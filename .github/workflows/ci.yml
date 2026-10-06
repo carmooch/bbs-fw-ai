@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  firmware:
+    name: BBSHD firmware
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDCC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sdcc
+
+      - name: Build
+        working-directory: src/firmware
+        run: make all TARGET_CONTROLLER=BBSHD
+
+      - name: Memory usage
+        working-directory: src/firmware
+        run: |
+          {
+            echo '### BBSHD memory usage'
+            echo '```'
+            sed -n '/^Other memory:/,$p' bbs-fw.mem
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bbs-fw-BBSHD
+          path: src/firmware/bbs-fw.hex
+          if-no-files-found: error
+
+  host-tests:
+    name: Host tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run
+        working-directory: src/firmware/test
+        run: make run
+
+  line-endings:
+    name: Line endings
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: No line-ending-only changes against upstream
+        run: scripts/check-eol.sh

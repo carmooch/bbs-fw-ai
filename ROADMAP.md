@@ -32,8 +32,22 @@ With the default config at level 3, the baseline scenarios in `src/firmware/host
 - **Effort is ignored, or worse.** At the same speed, spinning hard at 90 rpm gets 12% current;
   an easy 50 rpm gets 14%. The "keep current" setting tapers assist down as cadence rises.
 
-Each of these has an `expect` line pinned to today's numbers, so every improvement shows up as a
+Each of these has an `expect` line pinned to the numbers, so every improvement shows up as a
 deliberate, reviewed change to a baseline.
+
+### What 2.0 changes (simulator, not yet ridden)
+
+- **Stop:** assist is cut 50-90 ms after the pedals stop, instead of 160-195 ms.
+- **Rolling start:** at 20 km/h assist starts after ~30° of crank (75 ms), instead of 90° (215 ms).
+  From a standstill it still waits 90°, on purpose.
+- **Effort:** with a power-based level on a 4% hill, the motor gives ~200 W when the rider puts in
+  100 W and ~260 W at 250 W; the fixed-current level gives 175 W at both. This is
+  *cadence*-proportional: the extra help comes from pedalling faster in the same gear, so a rider
+  who shifts up to hold cadence gets about the same assist. That's the ceiling without a torque
+  sensor; gear boost adds a second signal for climbs and launches.
+- **End of battery:** one sag on a climb no longer limits power for the rest of the ride.
+
+See [TUNING.md](TUNING.md) for switching the new settings on one at a time.
 
 There's also an experimental idea: inferring effort from the cadence ripple within each pedal
 stroke, or from speed and acceleration. It may or may not work, so it only gets built after
@@ -93,11 +107,14 @@ Fixes:
   a 14s pack is nearer 10-20%, and it only updates after 2 s with no load.
 
 **3. Responsiveness.** Uses pulse timing the firmware already has; no new measurements needed.
-- [ ] Predictive stop detection: treat pedalling as stopped once the next pulse is clearly
-  overdue at the current cadence, instead of after a fixed 200 ms
-- [ ] Faster start when already rolling, instead of always waiting 90° of crank
-- [ ] PAS start and stop delay per assist level *(old #2, #40)*
-- [ ] Shaped ramp-up: current ramp rate per level *(old #3)* and a launch boost from standstill *(old #4)*
+- [x] Predictive stop detection: pedalling counts as stopped once the next pulse is twice as late
+  as the last, instead of after a fixed 200 ms. A brief slowdown that resumes inside the stop
+  delay picks up at the previous current instead of ramping from zero.
+- [x] Faster start when already rolling (above 5 km/h): 2 pulses instead of 6
+- [x] Shaped ramp-up: current ramp rate per level *(old #3)* and a launch ramp below 10 km/h *(old #4)*
+- Not done: PAS start and stop delay per assist level *(old #2, #40)*. Predictive stop and the
+  rolling start cover most of what they were for, and they'd need 40 bytes when the config
+  message has 29 left.
 
 **4. Bench measurements.** Bike on the stand, config cable connected, results through the event log.
 - [ ] PAS signal shape: a diagnostic build that sends PAS edge timing to the WPF tool's event log
@@ -111,20 +128,19 @@ Fixes:
 - [ ] Higher PAS resolution (more edges per revolution), if the PAS measurement allows it
 
 **5. Proportional assist** (the headline)
-- [ ] Simulator physics: rider, bike mass, slope, drag, and motor power feeding back into speed and
-  cadence. Proportional assist changes how the rider pedals, so cadence can't stay a fixed input.
-- [ ] Assist levels in watts instead of current percent, using measured battery voltage, so a level
-  feels the same on a full and a nearly empty battery
-- [ ] Cadence-proportional power per level: start level, W/rpm scale, cap
-- [ ] Gear-aware assist: the speed/cadence ratio says which gear you're in, and low gear at low
-  speed (a climb or a hard start) is a usable proxy for effort. Gear is already a simulator input.
-- [ ] WPF tool fields for the above, plus a curve preview
+- [x] Simulator physics: rider power, bike mass, grade, drag, and motor power feeding back into
+  speed and cadence (checked against hand calculations)
+- [x] Assist levels in watts: the "Power" PAS variant targets battery power, using the measured
+  voltage, so a level gives the same power on a full and a nearly empty battery (up to its current cap)
+- [x] Cadence-proportional power per level: start W + W/rpm x cadence, capped by the level's current
+- [x] Gear-aware boost: extra assist in low gears from the wheel/crank ratio, full boost from a
+  standstill
+- [x] WPF tool fields for all of the above, plus a power-vs-cadence preview per level
 
 **6. Motor speed locked to cadence**
-- [ ] The firmware already gives the motor a maximum speed (`motor_set_target_speed`), but only as a
-  fixed percentage per level. Make it follow the rider's cadence plus a small margin, so the motor
-  can't run ahead of the pedals ("ghost pedalling"). This needs the phase 4 bench results first,
-  to see how the motor's control chip treats a moving speed cap.
+- [x] The motor's speed cap (`motor_set_target_speed`) follows the rider's cadence plus a margin,
+  so the motor can't run ahead of the pedals. **Off by default and untested on hardware:** how the
+  motor's control chip treats a moving speed cap is still unknown (phase 4). Try it on the stand first.
 
 **7. Performance and range**
 

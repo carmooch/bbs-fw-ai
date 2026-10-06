@@ -1,0 +1,15 @@
+title Start pedalling from standstill, ride, stop pedalling (default config, level 3)
+
+# Rider pulls away gently, holds 70 rpm, then stops pedalling and coasts.
+at 1000 cadence 70 over 800
+at 6000 cadence 0
+
+end 8000
+
+# Baseline (upstream behaviour): assist after 6 PAS pulses (90 deg of crank),
+# held at full for ~170ms after the rider stops, then cut.
+expect 1580 current == 0
+expect 1600 current > 0
+expect 3000 current == 13
+expect 6170 current == 13
+expect 6200 current == 0

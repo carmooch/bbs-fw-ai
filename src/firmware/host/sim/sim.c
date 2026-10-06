@@ -268,6 +268,8 @@ typedef struct
 	double current_a;
 	int target_speed_pct;
 	int motor_on;
+	double voltage_v;
+	int fw_battery_pct;
 } sample_t;
 
 static sample_t* samples;
@@ -296,6 +298,8 @@ static void record(uint32_t t_ms)
 	x->current_a = g_hw.motor_target_current * g_config.max_current_amps / 100.0;
 	x->target_speed_pct = g_hw.motor_target_speed;
 	x->motor_on = g_hw.motor_enabled;
+	x->voltage_v = g_hw.battery_voltage_x10 / 10.0;
+	x->fw_battery_pct = battery_get_percent();
 }
 
 static bool write_csv(const scenario_t* s, const char* path)
@@ -310,15 +314,15 @@ static bool write_csv(const scenario_t* s, const char* path)
 	fprintf(f, "# %s\n", s->title[0] ? s->title : s->path);
 	fprintf(f, "t_ms,cadence_rpm,crank_deg,speed_kph,throttle_pct,brake,level,"
 		"fw_cadence_rpm,fw_pas_pulses,fw_pedaling,fw_speed_kph,"
-		"current_pct,current_a,target_speed_pct,motor_on\n");
+		"current_pct,current_a,target_speed_pct,motor_on,voltage_v,fw_battery_pct\n");
 
 	for (int i = 0; i < num_samples; ++i)
 	{
 		const sample_t* x = &samples[i];
-		fprintf(f, "%u,%.1f,%.1f,%.2f,%.0f,%d,%d,%.1f,%d,%d,%.2f,%d,%.2f,%d,%d\n",
+		fprintf(f, "%u,%.1f,%.1f,%.2f,%.0f,%d,%d,%.1f,%d,%d,%.2f,%d,%.2f,%d,%d,%.1f,%d\n",
 			x->t_ms, x->cadence_rpm, x->crank_deg, x->speed_kph, x->throttle, x->brake, x->level,
 			x->fw_cadence_rpm, x->fw_pas_pulses, x->fw_pedaling, x->fw_speed_kph,
-			x->current_pct, x->current_a, x->target_speed_pct, x->motor_on);
+			x->current_pct, x->current_a, x->target_speed_pct, x->motor_on, x->voltage_v, x->fw_battery_pct);
 	}
 
 	fclose(f);
@@ -537,6 +541,7 @@ int main(int argc, char** argv)
 			input_set(e->input, e->value, t_ms, e->over_ms);
 		}
 		inputs_update(t_ms);
+		bike_step(0);	// apply this millisecond's inputs to the pins before the firmware looks
 
 		uint8_t level = (uint8_t)inputs[INPUT_LEVEL].value;
 		if (level != app_get_assist_level())

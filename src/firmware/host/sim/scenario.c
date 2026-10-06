@@ -97,9 +97,9 @@ bool scenario_load(const char* path, scenario_t* s)
 		}
 
 		// split into words
-		char* words[16];
+		char* words[64];
 		int n = 0;
-		for (char* tok = strtok(buf, " \t\r\n"); tok && n < 16; tok = strtok(NULL, " \t\r\n"))
+		for (char* tok = strtok(buf, " \t\r\n"); tok && n < 64; tok = strtok(NULL, " \t\r\n"))
 		{
 			words[n++] = tok;
 		}

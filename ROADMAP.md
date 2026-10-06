@@ -63,28 +63,51 @@ Items marked *(old #n)* come from the first fork's feature catalogue on `archive
 - [x] Host test harness with a fake hardware layer that can link `app.c`
 - [x] Ride simulator: scenario scripts in, CSV and plot of target current out
 
-**1. Free win: try it before writing code**
-- [ ] Ride with `pas_keep_current_percent` = 100 (set in the WPF tool). This switches off the taper
-  that cuts assist as cadence rises. In the simulator, hard pedalling goes from 12% to 14%,
-  matching the easy spin, instead of getting less help.
+**1. Free wins: config changes to try before any code** (all in the WPF tool)
+- [ ] `pas_keep_current_percent` = 100. This switches off the taper that cuts assist as cadence
+  rises. In the simulator, hard pedalling goes from 12% to 14%, matching the easy spin.
+- [ ] Check the battery settings match the 52V (14s) pack: max battery voltage 58.8V, low cutoff
+  42V. Upstream's default max is 54.6V, which is for a 48V (13s) pack, and it skews both the
+  battery % and the low-voltage limit.
+- [ ] Optionally raise max current from 30A to 33A (the hardware limit): about 10% more peak
+  power, at the cost of more heat and more battery sag.
 
-**2. Responsiveness.** Uses pulse timing the firmware already has; no new measurements needed.
+**2. End-of-battery power.** The bike slows near the end of the battery. Two causes:
+- At a fixed current, power falls with voltage: about 22% less from 58.8V to 46V. This is
+  physics, and watt-based levels (phase 5) compensate for it up to the current limit.
+- The low-voltage limit makes it worse. It acts on the *lowest* voltage seen, which only moves
+  down, so one sag on a climb keeps power reduced until the controller restarts. Baseline:
+  `lvc_sag.sim`. On a 52V pack resting at 48V, a 3 s sag to 44V drops level 9 from 26.7A to
+  21.3A for the rest of the ride.
+
+Fixes:
+- [ ] Low-voltage limit that recovers when the battery does, with hysteresis so it doesn't hunt
+- [ ] Sag compensation: estimate the battery's internal resistance from voltage/current pairs and
+  judge the battery on its resting voltage, not the sag. It still protects a genuinely empty
+  pack; the BMS remains the last line of defence.
+- [ ] Battery % from a lithium-ion discharge curve instead of a straight line, with the same sag
+  compensation, so the display is right while riding. Today it shows 33% at 48V resting, where
+  a 14s pack is nearer 10-20%, and it only updates after 2 s with no load.
+
+**3. Responsiveness.** Uses pulse timing the firmware already has; no new measurements needed.
 - [ ] Predictive stop detection: treat pedalling as stopped once the next pulse is clearly
   overdue at the current cadence, instead of after a fixed 200 ms
 - [ ] Faster start when already rolling, instead of always waiting 90° of crank
 - [ ] PAS start and stop delay per assist level *(old #2, #40)*
 - [ ] Shaped ramp-up: current ramp rate per level *(old #3)* and a launch boost from standstill *(old #4)*
 
-**3. Bench measurements.** Bike on the stand, config cable connected, results through the event log.
+**4. Bench measurements.** Bike on the stand, config cable connected, results through the event log.
 - [ ] PAS signal shape: a diagnostic build that sends PAS edge timing to the WPF tool's event log
   while the cranks are turned by hand. Pulse count, duty cycle, and whether PAS1/PAS2 form a usable
   quadrature pair. This decides whether higher PAS resolution is possible.
 - [ ] Motor response: commanded current against the actual current the motor controller reports
   (`motor_get_battery_current_x10`). The motor's own control chip has its own current loop, so if
-  it adds a lot of lag, that limits what phase 2 can achieve.
+  it adds a lot of lag, that limits what phase 3 can achieve.
+- [ ] Battery: voltage against current under load, to measure the pack's internal resistance
+  for phase 2 and the simulator's battery model
 - [ ] Higher PAS resolution (more edges per revolution), if the PAS measurement allows it
 
-**4. Proportional assist** (the headline)
+**5. Proportional assist** (the headline)
 - [ ] Simulator physics: rider, bike mass, slope, drag, and motor power feeding back into speed and
   cadence. Proportional assist changes how the rider pedals, so cadence can't stay a fixed input.
 - [ ] Assist levels in watts instead of current percent, using measured battery voltage, so a level
@@ -94,13 +117,34 @@ Items marked *(old #n)* come from the first fork's feature catalogue on `archive
   speed (a climb or a hard start) is a usable proxy for effort. Gear is already a simulator input.
 - [ ] WPF tool fields for the above, plus a curve preview
 
-**5. Motor speed locked to cadence**
+**6. Motor speed locked to cadence**
 - [ ] The firmware already gives the motor a maximum speed (`motor_set_target_speed`), but only as a
   fixed percentage per level. Make it follow the rider's cadence plus a small margin, so the motor
-  can't run ahead of the pedals ("ghost pedalling"). This needs the phase 3 bench results first,
+  can't run ahead of the pedals ("ghost pedalling"). This needs the phase 4 bench results first,
   to see how the motor's control chip treats a moving speed cap.
 
-**6. Companion device**
+**7. Performance and range**
+
+Peak power is capped by hardware (33A, 63V), so the gains here come from not wasting power and
+heat that's already available.
+- [ ] Simulator battery and heat models: a discharge curve plus internal resistance, and a simple
+  motor heating model, calibrated against bench and ride data
+- [ ] Heat budget instead of a cliff. Today power starts cutting at 80 °C and is down to 20% at
+  85 °C, so a long climb gets full power until it suddenly doesn't. Ease off earlier and more
+  gently, predicting winding heat from current, because the sensor on the housing lags the
+  windings. Raising the 85 °C limit itself stays off the table until warnings and logging exist.
+- [ ] Lugging protection: limit current at very low cadence, where the motor turns the most power
+  into heat. This helps both sustained climbing and range.
+- [ ] Trip and lifetime Wh counting *(old #10)*, and Wh per km
+- [ ] Range estimate on the SW102T: Wh remaining divided by recent Wh/km. The Range field shows
+  temperature today, so choose one or alternate between them.
+- [ ] Get-home reserve: below a set battery level, limit power so the last few km are guaranteed
+  *(old #55, #56)*
+- [ ] Range target mode: "I need 40 km", and assist scales itself to the energy budget, using
+  distance from the speed sensor and Wh from current × voltage. Easiest to drive from the
+  companion device.
+
+**8. Companion device**
 - [ ] An ESP32 board spliced into the display cable that passes display traffic through and adds
   its own, like `src/logger` does. From a phone: change settings mid-ride, flip between two
   tunings for back-to-back comparison, and log every ride.
@@ -109,16 +153,12 @@ Items marked *(old #n)* come from the first fork's feature catalogue on `archive
   scale assist. Unlocks heart-rate-zone assist from a Bluetooth chest strap, gradient-aware assist
   from an accelerometer, and location-based speed zones.
 
-**7. Experiments**
+**9. Experiments**
 - [ ] Effort inference from cadence ripple within each pedal stroke, or from speed and
   acceleration, only if recorded ride data shows a usable signal
 
 **Small items, whenever they fit**
 - [ ] Throttle upper deadband: full power before full twist *(old #5)*
-- [ ] Trip and lifetime Wh counting *(old #10)*; pairs with watt-based levels
-- [ ] The low-voltage-cutoff filter only ratchets down, so a hard sag keeps power reduced until
-  reboot. This only matters within about 15% of empty, and may be deliberate, so check it before
-  changing it.
 - [ ] Tidy-up: the `util.h` macros (`MIN`/`MAX`/`ABS`) are unparenthesised. No live call site is
   affected; the only one that would break is disabled debug code in `throttle.c`.
 
@@ -136,6 +176,8 @@ builds too, just not switchable from the config tool.
 - BBS02 and TSDZ2. Their code stays untouched so the diff against upstream stays clean, but they aren't built or tested.
 - The web config tool, profile sharing, config migration from upstream, and anything else aimed at other riders.
 - Anything the motor MCU controls: field weakening, phase advance, FOC, or more than 33A.
+- Hardware changes (battery, chainring size, cooling mods). They can matter more than firmware for
+  performance and range, but they're outside this repository.
 
 ## Archive
 

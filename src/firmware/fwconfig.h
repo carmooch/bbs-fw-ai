@@ -85,6 +85,15 @@
 // Motor current is ramped down linearly until this value when approaching "empty".
 #define LVC_LOW_CURRENT_PERCENT					20
 
+// Rate at which the low voltage limit recovers after a voltage sag ends, in
+// 0.01V per second. Kept slow on purpose: limiting power shrinks the sag,
+// which would otherwise lift the limit straight away and make it hunt.
+#define LVC_RECOVERY_RATE_X100_PER_S			25
+
+// The low voltage limit only recovers while the battery is supplying at least
+// this current (A x10), so it judges the pack under load, not at rest.
+#define LVC_RECOVERY_MIN_CURRENT_X10			30
+
 // Size of speed limit ramp down interval.
 // If max speed is 50 and this is set to 3 then the
 // target current will start ramping down when passing 47

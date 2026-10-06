@@ -78,9 +78,12 @@ The bike model is deliberately simple. Keep these in mind when reading results:
 - The rider's cadence is an **input**. Motor power doesn't feed back into cadence or speed, so
   the simulator shows what the firmware *asks for*, not how the bike would accelerate.
 - PAS is modelled as a clean quadrature pair with 50% duty. The real BBSHD signal hasn't been
-  measured yet (roadmap phase 2); `bike pas_duty <fraction>` changes the duty.
+  measured yet (roadmap: bench measurements); `bike pas_duty <fraction>` changes the duty.
 - While pedalling, the wheel turns at cadence × `gear`. Otherwise it coasts down at
   `bike coast_decel` m/s².
+- The battery voltage is an input. With `bike battery_r <ohms>` set, that input is the resting
+  voltage and the pack sags by current × resistance, taking the commanded current as the battery
+  current.
 - Temperature reads 0 °C, so thermal limiting never engages. The motor controller's own
   behaviour, including its current loop and speed limit, isn't modelled at all.
 

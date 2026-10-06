@@ -1,0 +1,22 @@
+title Near-empty 52V pack (44.8V resting, 0.15 ohm), level 9: ride, stop for 15 s, pull away again
+
+# While stopped the pack recovers to its resting voltage. The low-voltage
+# limit must not recover with it, or pulling away would surge to full
+# current and sag the pack hard. It only recovers under load.
+config max_battery_x100v 5880
+config low_cut_off_v 42
+bike battery_r 0.15
+
+at 0 level 9
+at 0 voltage 44.8
+at 1000 cadence 70 over 500
+at 20000 cadence 0
+at 35000 cadence 70 over 500
+
+end 45000
+
+# Settled at 29% (8.7A) before the stop; pulling away overshoots by at most
+# a few percent for half a second, then settles back.
+expect 19000 current == 29
+expect 36500 current <= 34
+expect 39000 current == 29

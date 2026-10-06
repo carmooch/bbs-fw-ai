@@ -689,16 +689,25 @@ bool apply_low_voltage_limit(uint8_t* target_current)
 	static bool lvc_limiting = false;
 
 	static uint32_t next_voltage_reading_ms = 125;
-	static int32_t flt_min_bat_volt_x100 = 100 * 100;
+	static int32_t flt_bat_volt_x100 = 100 * 100;
 
 	if (system_ms() > next_voltage_reading_ms)
 	{
 		next_voltage_reading_ms = system_ms() + 125;
 		int32_t voltage_reading_x100 = motor_get_battery_voltage_x10() * 10ul;
 
-		if (voltage_reading_x100 < flt_min_bat_volt_x100)
+		if (voltage_reading_x100 < flt_bat_volt_x100)
 		{
-			flt_min_bat_volt_x100 = EXPONENTIAL_FILTER(flt_min_bat_volt_x100, voltage_reading_x100, 8);
+			flt_bat_volt_x100 = EXPONENTIAL_FILTER(flt_bat_volt_x100, voltage_reading_x100, 8);
+		}
+		else if (motor_get_battery_current_x10() >= LVC_RECOVERY_MIN_CURRENT_X10)
+		{
+			// Recover slowly once a sag is over (readings are 125ms apart), so one
+			// sag on a climb doesn't limit power for the rest of the ride. Only
+			// under load: an unloaded pack reads high, and recovering while
+			// stopped would let the next pull-away surge before the limit returns.
+			int32_t recovery_step_x100 = (LVC_RECOVERY_RATE_X100_PER_S * 125l) / 1000;
+			flt_bat_volt_x100 = MIN(flt_bat_volt_x100 + recovery_step_x100, voltage_reading_x100);
 		}
 
 		if (eventlog_is_enabled() && system_ms() > next_log_volt_ms)
@@ -708,7 +717,7 @@ bool apply_low_voltage_limit(uint8_t* target_current)
 		}
 	}
 
-	uint16_t voltage_x100 = flt_min_bat_volt_x100;
+	uint16_t voltage_x100 = flt_bat_volt_x100;
 
 	if (voltage_x100 <= lvc_ramp_down_start_voltage_x100)
 	{

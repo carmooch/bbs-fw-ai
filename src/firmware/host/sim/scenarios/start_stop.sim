@@ -6,10 +6,10 @@ at 6000 cadence 0
 
 end 8000
 
-# Baseline (upstream behaviour): assist after 6 PAS pulses (90 deg of crank),
-# held at full for ~170ms after the rider stops, then cut.
+# Assist after 6 PAS pulses (90 deg of crank) from a standstill. Predictive
+# stop cuts it ~65ms after the rider stops (upstream held full assist for
+# ~170ms, until a fixed 200ms timeout).
 expect 1580 current == 0
 expect 1600 current > 0
 expect 3000 current == 13
-expect 6170 current == 13
-expect 6200 current == 0
+expect 6100 current == 0

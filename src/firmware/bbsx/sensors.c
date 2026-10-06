@@ -75,6 +75,14 @@ static bool pas_prev1;
 static bool pas_prev2;
 static uint16_t pas_stop_delay_periods;
 
+// Predictive stop: pedalling counts as stopped once the next pulse is twice
+// as late as the last one. That only cuts assist; the pulse count is kept
+// until the full stop delay runs out, so pedalling on after a brief slowdown
+// resumes assist without waiting for the start delay again.
+static bool pas_stop_predictive;
+static uint16_t pas_stop_predict_periods;
+static bool pas_predictive_stopped;
+
 static volatile uint16_t speed_ticks_period_length; // pulse length counted in interrupt frequency (100us)
 static uint16_t speed_period_counter;
 static bool speed_prev_state;
@@ -137,6 +145,9 @@ void sensors_init()
 	pas_direction_backward = false;
 	pas_period_length = 0;
 	pas_stop_delay_periods = 1500;
+	pas_stop_predictive = false;
+	pas_stop_predict_periods = 0;
+	pas_predictive_stopped = false;
 	speed_period_counter = 0;
 	speed_ticks_period_length = 0;
 	speed_prev_state = false;
@@ -164,6 +175,11 @@ void sensors_process()
 void pas_set_stop_delay(uint16_t delay_ms)
 {
 	pas_stop_delay_periods = delay_ms * 10;
+}
+
+void pas_set_stop_predictive(bool enabled)
+{
+	pas_stop_predictive = enabled;
 }
 
 uint16_t pas_get_cadence_rpm_x10()
@@ -385,6 +401,10 @@ void sensors_timer0_isr() // runs every 100us, see timers.c
 				if (pas_period_counter <= pas_stop_delay_periods)
 				{
 					pas_period_length = pas_period_counter; // save in order to be able to calculate rpm when needed
+
+					// twice this period, capped at the stop delay (shifts only, see warning above)
+					pas_stop_predict_periods = (pas_period_counter < (pas_stop_delay_periods >> 1)) ?
+						(pas_period_counter << 1) : pas_stop_delay_periods;
 				}
 				else
 				{
@@ -393,6 +413,8 @@ void sensors_timer0_isr() // runs every 100us, see timers.c
 
 				pas_period_counter = 0;
 			}
+
+			pas_predictive_stopped = false;
 		}
 		else
 		{
@@ -407,6 +429,18 @@ void sensors_timer0_isr() // runs every 100us, see timers.c
 				pas_period_length = 0;
 				pas_pulse_counter = 0;
 				pas_direction_backward = false;
+			}
+			else if (pas_predictive_stopped && pas_period_counter > pas_stop_delay_periods)
+			{
+				// full stop delay passed after a predictive stop
+				pas_predictive_stopped = false;
+				pas_pulse_counter = 0;
+				pas_direction_backward = false;
+			}
+			else if (pas_stop_predictive && pas_period_length > 0 && pas_period_counter > pas_stop_predict_periods)
+			{
+				pas_period_length = 0;
+				pas_predictive_stopped = true;
 			}
 		}
 

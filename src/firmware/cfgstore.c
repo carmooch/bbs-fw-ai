@@ -244,7 +244,7 @@ static void load_default_config()
 static void load_default_config_v6()
 {
 	g_config.pas_stop_predictive = 1;
-	g_config.pas_start_delay_pulses_rolling = 2;
+	g_config.pas_start_delay_pulses_rolling = 1;
 	g_config.launch_ramp_amps_s = 0;
 
 	g_config.gear_boost_max_percent = 0;

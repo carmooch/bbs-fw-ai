@@ -18,6 +18,7 @@ void sensors_init();
 void sensors_process();
 
 void pas_set_stop_delay(uint16_t delay_ms);
+void pas_set_stop_predictive(bool enabled);
 uint16_t pas_get_cadence_rpm_x10();
 uint16_t pas_get_pulse_counter();
 bool pas_is_pedaling_forwards();

@@ -65,6 +65,9 @@ static const u8_field_t u8_fields[] =
 	U8(pas_keep_current_cadence_rpm), U8(throttle_start_percent), U8(throttle_global_spd_lim_opt),
 	U8(throttle_global_spd_lim_percent), U8(shift_interrupt_current_threshold_percent),
 	U8(assist_mode_select), U8(assist_startup_level),
+	U8(pas_stop_predictive), U8(pas_start_delay_pulses_rolling), U8(launch_ramp_amps_s),
+	U8(gear_boost_max_percent), U8(gear_ratio_low_x10), U8(gear_ratio_high_x10),
+	U8(cadence_lock_margin_rpm),
 };
 
 static const u16_field_t u16_fields[] =
@@ -82,6 +85,13 @@ static const u8_field_t level_fields[] =
 	{ "max_speed_percent", offsetof(assist_level_t, max_speed_percent) },
 };
 
+static const u8_field_t level_ext_fields[] =
+{
+	{ "power_start_w_div10", offsetof(assist_level_ext_t, power_start_w_div10) },
+	{ "power_w_per_rpm_x10", offsetof(assist_level_ext_t, power_w_per_rpm_x10) },
+	{ "current_ramp_amps_s", offsetof(assist_level_ext_t, current_ramp_amps_s) },
+};
+
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
 static bool apply_override(const scenario_t* s, const config_override_t* o)
@@ -96,6 +106,15 @@ static bool apply_override(const scenario_t* s, const config_override_t* o)
 			if (strcmp(o->field, level_fields[i].name) == 0)
 			{
 				level[level_fields[i].offset] = (uint8_t)o->value;
+				return true;
+			}
+		}
+		uint8_t* ext = (uint8_t*)&g_config.assist_level_ext[OPERATION_MODE_DEFAULT][o->level];
+		for (size_t i = 0; i < COUNT(level_ext_fields); ++i)
+		{
+			if (strcmp(o->field, level_ext_fields[i].name) == 0)
+			{
+				ext[level_ext_fields[i].offset] = (uint8_t)o->value;
 				return true;
 			}
 		}
@@ -523,6 +542,7 @@ int main(int argc, char** argv)
 	sensors_init();
 	speed_sensor_set_signals_per_rpm(g_config.speed_sensor_signals);
 	pas_set_stop_delay((uint16_t)g_config.pas_stop_delay_x100s * 10);
+	pas_set_stop_predictive(g_config.pas_stop_predictive);
 
 	battery_init();
 	throttle_init(
@@ -549,6 +569,13 @@ int main(int argc, char** argv)
 		{
 			const event_t* e = &s.events[next_event++];
 			input_set(e->input, e->value, t_ms, e->over_ms);
+
+			// speed sets the wheel speed instantly; the wheel then follows the
+			// pedals or coasts as usual
+			if (e->input == INPUT_SPEED)
+			{
+				bike.wheel_rps = e->value / 3.6 / bike.wheel_circumference_m;
+			}
 		}
 		inputs_update(t_ms);
 		bike_step(0);	// apply this millisecond's inputs to the pins before the firmware looks

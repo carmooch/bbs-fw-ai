@@ -8,6 +8,7 @@ at 7000 cadence 0
 
 end 8000
 
-# Baseline: rolling at speed doesn't help; assist still waits for 90 deg of crank.
-expect 3200 current == 0
-expect 3250 current > 0
+# Rolling start: above 5 km/h assist starts after 2 PAS pulses (~30 deg,
+# ~75ms at 70 rpm). Upstream waited 90 deg (215ms) here too.
+expect 3000 current == 0
+expect 3100 current > 0

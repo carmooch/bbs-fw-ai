@@ -94,6 +94,16 @@
 // this current (A x10), so it judges the pack under load, not at rest.
 #define LVC_RECOVERY_MIN_CURRENT_X10			30
 
+// Below this wheel speed the launch ramp rate applies (launch_ramp_amps_s).
+#define LAUNCH_SPEED_KPH						10
+
+// Above this wheel speed the bike counts as rolling, and the shorter PAS start
+// delay applies (pas_start_delay_pulses_rolling).
+#define ROLLING_START_SPEED_KPH					5
+
+// Lowest motor speed (percent of max) the cadence lock will ask for.
+#define CADENCE_LOCK_MIN_PERCENT				10
+
 // Size of speed limit ramp down interval.
 // If max speed is 50 and this is set to 3 then the
 // target current will start ramping down when passing 47

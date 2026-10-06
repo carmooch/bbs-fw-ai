@@ -1,0 +1,15 @@
+title Ease off sharply from 90 rpm to 35 rpm without stopping (level 3)
+
+# A rider easing off suddenly: the next PAS pulse arrives late. Predictive stop
+# may briefly cut assist, but it must come straight back on the next pulse
+# without waiting for the start delay again.
+at 1000 cadence 90 over 500
+at 4000 cadence 35 over 150
+at 7000 cadence 0
+
+end 8000
+
+expect 3900 current > 0
+expect 4300 current > 0
+expect 5000 current > 0
+expect 6900 current > 0

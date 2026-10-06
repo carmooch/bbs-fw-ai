@@ -7,8 +7,11 @@ at 9000 cadence 0
 
 end 10000
 
-# Baseline: assist runs on after the rider stops, at any cadence.
-expect 4100 current > 0
-expect 4250 current == 0
-expect 9100 current > 0
-expect 9250 current == 0
+# Predictive stop: assist is cut ~85ms after stopping from 40 rpm and ~50ms
+# from 90 rpm (upstream: 160ms and 195ms). The second start is rolling, so
+# it needs only 2 pulses.
+expect 4000 current > 0
+expect 4150 current == 0
+expect 6200 current > 0
+expect 9000 current > 0
+expect 9100 current == 0

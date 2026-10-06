@@ -1,0 +1,14 @@
+title Cadence drops instantly from 90 to 30 rpm without stopping (level 3)
+
+# Close to stopping: the next PAS pulse is three times as late, so predictive
+# stop fires. Pedalling resumes within the stop delay, so assist picks up
+# where it was instead of ramping up from zero (that would take ~400ms).
+at 1000 cadence 90 over 500
+at 4000 cadence 30
+at 7000 cadence 0
+
+end 8000
+
+expect 3990 current == 12
+expect 4110 current >= 12
+expect 4300 current == 14

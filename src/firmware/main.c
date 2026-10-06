@@ -54,6 +54,9 @@ void main(void)
 
 	speed_sensor_set_signals_per_rpm(g_config.speed_sensor_signals);
 	pas_set_stop_delay((uint16_t)g_config.pas_stop_delay_x100s * 10);
+#if defined(BBSHD) || defined(BBS02)
+	pas_set_stop_predictive(g_config.pas_stop_predictive);
+#endif
 
 	battery_init();
 	throttle_init(

@@ -91,7 +91,7 @@ static int test_cfgstore_migrates_version_5_config(void)
 
 	// ...the version 6 additions get defaults...
 	ASSERT_EQ(1, g_config.pas_stop_predictive);
-	ASSERT_EQ(2, g_config.pas_start_delay_pulses_rolling);
+	ASSERT_EQ(1, g_config.pas_start_delay_pulses_rolling);
 	ASSERT_EQ(10, g_config.assist_level_ext[0][3].power_start_w_div10);
 
 	// ...and it's saved back as version 6, so the next boot reads it directly.

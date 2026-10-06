@@ -34,6 +34,10 @@ typedef struct
 	uint16_t keep_current_ramp_start_rpm_x10;
 	uint16_t keep_current_ramp_end_rpm_x10;
 
+	// config version 6 per-level settings
+	assist_level_ext_t ext;
+	uint16_t ramp_up_current_interval_ms;
+
 } assist_level_data_t;
 
 static uint8_t assist_level;
@@ -53,13 +57,32 @@ static int8_t temperature_contr_c;
 static int8_t temperature_motor_c;
 
 static uint16_t ramp_up_current_interval_ms;
+static uint16_t launch_ramp_up_current_interval_ms;	// 0 = no launch ramp
 static uint32_t power_blocked_until_ms;
+
+static uint16_t launch_speed_rpm_x10;
+static uint16_t rolling_start_speed_rpm_x10;
+
+// Predictive stop can briefly cut assist when the rider eases off sharply. If
+// pedalling resumes within the stop delay, pick up at the current from before
+// the stop instead of ramping up from zero (upstream would have held it).
+static bool pas_was_engaged;
+static uint8_t pas_current_before_stop;
+static uint32_t pas_stopped_at_ms;
+static uint8_t last_target_current;
+
+static uint8_t ramp_up_target_current;
+static uint32_t last_ramp_up_increment_ms;
 
 static uint16_t pretension_cutoff_speed_rpm_x10;
 
 static bool lights_state = false;
 
 void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent);
+uint8_t compute_pas_power_current();
+uint8_t apply_gear_boost(uint8_t current);
+uint8_t apply_cadence_lock(uint8_t target_cadence);
+uint16_t ramp_interval_ms(uint8_t amps_per_second);
 #if HAS_TORQUE_SENSOR
 void apply_pas_torque(uint8_t* target_current);
 #endif
@@ -105,8 +128,19 @@ void app_init()
 	temperature_contr_c = 0;
 	temperature_motor_c = 0;
 
-	ramp_up_current_interval_ms = (g_config.max_current_amps * 10u) / g_config.current_ramp_amps_s;
+	ramp_up_current_interval_ms = ramp_interval_ms(g_config.current_ramp_amps_s);
+	launch_ramp_up_current_interval_ms = g_config.launch_ramp_amps_s > 0 ? ramp_interval_ms(g_config.launch_ramp_amps_s) : 0;
 	power_blocked_until_ms = 0;
+
+	launch_speed_rpm_x10 = convert_wheel_speed_kph_to_rpm(LAUNCH_SPEED_KPH) * 10;
+
+	pas_was_engaged = false;
+	pas_current_before_stop = 0;
+	pas_stopped_at_ms = 0;
+	last_target_current = 0;
+	ramp_up_target_current = 0;
+	last_ramp_up_increment_ms = 0;
+	rolling_start_speed_rpm_x10 = convert_wheel_speed_kph_to_rpm(ROLLING_START_SPEED_KPH) * 10;
 
 	speed_limit_ramp_interval_rpm_x10 = convert_wheel_speed_kph_to_rpm(SPEED_LIMIT_RAMP_DOWN_INTERVAL_KPH) * 10;
 
@@ -163,6 +197,11 @@ void app_process()
 		{
 			target_cadence = THROTTLE_CADENCE_OVERRIDE_PERCENT;
 		}
+
+		if (pas_engaged && !throttle_override)
+		{
+			target_cadence = apply_cadence_lock(target_cadence);
+		}
 	}
 
 	bool speed_limiting = apply_speed_limit(&target_current, throttle_percent, pas_engaged, throttle_override);
@@ -177,11 +216,36 @@ void app_process()
 	bool is_limiting = speed_limiting || thermal_limiting || lvc_limiting || shift_limiting;
 	bool is_braking = apply_brake(&target_current);
 
+	if (g_config.pas_stop_predictive)
+	{
+		if (pas_engaged && !pas_was_engaged && pas_stopped_at_ms != 0 &&
+			(system_ms() - pas_stopped_at_ms) <= (uint16_t)g_config.pas_stop_delay_x100s * 10u &&
+			ramp_up_target_current < pas_current_before_stop)
+		{
+			ramp_up_target_current = pas_current_before_stop;
+		}
+		else if (!pas_engaged && pas_was_engaged)
+		{
+			pas_stopped_at_ms = system_ms();
+			pas_current_before_stop = last_target_current;
+		}
+	}
+	pas_was_engaged = pas_engaged;
+
+	// launch ramp below LAUNCH_SPEED_KPH, otherwise the level's own rate
+	ramp_up_current_interval_ms = assist_level_data.ramp_up_current_interval_ms;
+	if (launch_ramp_up_current_interval_ms > 0 && g_config.use_speed_sensor &&
+		speed_sensor_get_rpm_x10() < launch_speed_rpm_x10)
+	{
+		ramp_up_current_interval_ms = launch_ramp_up_current_interval_ms;
+	}
+
 	apply_current_ramp_up(&target_current, is_limiting || !throttle_override);
 	apply_current_ramp_down(&target_current, !is_braking && !shift_limiting);
 
 	motor_set_target_speed(target_cadence);
 	motor_set_target_current(target_current);
+	last_target_current = target_current;
 
 	if (target_current > 0)
 	{
@@ -373,11 +437,26 @@ void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent)
 {
 	if ((assist_level_data.level.flags & ASSIST_FLAG_PAS) && !(assist_level_data.level.flags & ASSIST_FLAG_PAS_TORQUE))
 	{
-		if (pas_is_pedaling_forwards() && pas_get_pulse_counter() > g_config.pas_start_delay_pulses)
+		// a shorter start delay when already rolling (never a longer one)
+		uint8_t start_delay_pulses = g_config.pas_start_delay_pulses;
+		if (g_config.use_speed_sensor && speed_sensor_get_rpm_x10() > rolling_start_speed_rpm_x10)
+		{
+			start_delay_pulses = MIN(start_delay_pulses, g_config.pas_start_delay_pulses_rolling);
+		}
+
+		if (pas_is_pedaling_forwards() && pas_get_pulse_counter() > start_delay_pulses)
 		{
 			if (assist_level_data.level.flags & ASSIST_FLAG_PAS_VARIABLE)
 			{
 				uint8_t current = (uint8_t)MAP16(throttle_percent, 0, 100, 0, assist_level_data.level.target_current_percent);
+				if (current > *target_current)
+				{
+					*target_current = current;
+				}
+			}
+			else if (assist_level_data.level.flags & ASSIST_FLAG_PAS_POWER)
+			{
+				uint8_t current = apply_gear_boost(compute_pas_power_current());
 				if (current > *target_current)
 				{
 					*target_current = current;
@@ -407,9 +486,94 @@ void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent)
 							assist_level_data.keep_current_target_percent);			// out_max
 					}
 				}
+
+				*target_current = apply_gear_boost(*target_current);
 			}
 		}
 	}
+}
+
+// Power-based PAS (ASSIST_FLAG_PAS_POWER): battery power from the level's
+// start W plus W/rpm x cadence, turned into current with the battery voltage,
+// capped at the level's target current.
+uint8_t compute_pas_power_current()
+{
+	uint32_t power_w_x10 = (uint32_t)assist_level_data.ext.power_start_w_div10 * 100u +
+		((uint32_t)assist_level_data.ext.power_w_per_rpm_x10 * pas_get_cadence_rpm_x10()) / 10u;
+
+	// clamp to 24V if no reading is available yet, as apply_pas_torque does
+	uint16_t battery_voltage_x10 = MAX(motor_get_battery_voltage_x10(), 240);
+	uint32_t current_amp_x10 = (power_w_x10 * 10u) / battery_voltage_x10;
+	uint32_t percent = (current_amp_x10 * 100u) / (g_config.max_current_amps * 10u);
+
+	if (percent > assist_level_data.level.target_current_percent)
+	{
+		percent = assist_level_data.level.target_current_percent;
+	}
+
+	return (uint8_t)percent;
+}
+
+// Gear-aware boost: low gear (wheel/crank revolution ratio at or below
+// gear_ratio_low) gets the full boost, high gear (at or above gear_ratio_high)
+// none. From a standstill the ratio isn't known yet; that's a launch, so it
+// gets the full boost too.
+uint8_t apply_gear_boost(uint8_t current)
+{
+	if (g_config.gear_boost_max_percent == 0 || !g_config.use_speed_sensor || current == 0)
+	{
+		return current;
+	}
+
+	uint8_t boost_percent = g_config.gear_boost_max_percent;
+
+	uint16_t cadence_rpm_x10 = pas_get_cadence_rpm_x10();
+	uint16_t wheel_rpm_x10 = speed_sensor_get_rpm_x10();
+	if (wheel_rpm_x10 > 0 && cadence_rpm_x10 > 0 &&
+		g_config.gear_ratio_high_x10 > g_config.gear_ratio_low_x10)
+	{
+		uint32_t ratio_x10 = ((uint32_t)wheel_rpm_x10 * 10u) / cadence_rpm_x10;
+		if (ratio_x10 >= g_config.gear_ratio_high_x10)
+		{
+			boost_percent = 0;
+		}
+		else if (ratio_x10 > g_config.gear_ratio_low_x10)
+		{
+			boost_percent = (uint8_t)MAP32(ratio_x10,
+				g_config.gear_ratio_low_x10, g_config.gear_ratio_high_x10,
+				g_config.gear_boost_max_percent, 0);
+		}
+	}
+
+	uint16_t boosted = ((uint16_t)current * (100u + boost_percent)) / 100u;
+	return boosted > 100 ? 100 : (uint8_t)boosted;
+}
+
+// Cadence lock: cap the motor's speed at the pedals' cadence plus a margin,
+// so the motor can't run ahead of the rider. target_cadence is a percent of
+// the motor's maximum speed (MAX_CADENCE_RPM_X10).
+uint8_t apply_cadence_lock(uint8_t target_cadence)
+{
+	if (g_config.cadence_lock_margin_rpm == 0)
+	{
+		return target_cadence;
+	}
+
+	uint32_t lock_rpm_x10 = pas_get_cadence_rpm_x10() + g_config.cadence_lock_margin_rpm * 10u;
+	uint32_t lock_percent = (lock_rpm_x10 * 100u) / MAX_CADENCE_RPM_X10;
+
+	if (lock_percent < CADENCE_LOCK_MIN_PERCENT)
+	{
+		lock_percent = CADENCE_LOCK_MIN_PERCENT;
+	}
+
+	return lock_percent < target_cadence ? (uint8_t)lock_percent : target_cadence;
+}
+
+// Current ramp up rate in A/s -> ms per 1% of max current.
+uint16_t ramp_interval_ms(uint8_t amps_per_second)
+{
+	return (g_config.max_current_amps * 10u) / amps_per_second;
 }
 
 #if HAS_TORQUE_SENSOR
@@ -845,8 +1009,6 @@ bool apply_brake(uint8_t* target_current)
 
 void apply_current_ramp_up(uint8_t* target_current, bool enable)
 {
-	static uint8_t ramp_up_target_current = 0;
-	static uint32_t last_ramp_up_increment_ms = 0;
 
 	if (enable && *target_current > ramp_up_target_current)
 	{
@@ -949,6 +1111,9 @@ void reload_assist_params()
 	if (assist_level < ASSIST_PUSH)
 	{
 		assist_level_data.level = g_config.assist_levels[operation_mode][assist_level];
+		assist_level_data.ext = g_config.assist_level_ext[operation_mode][assist_level];
+		assist_level_data.ramp_up_current_interval_ms = ramp_interval_ms(
+			assist_level_data.ext.current_ramp_amps_s > 0 ? assist_level_data.ext.current_ramp_amps_s : g_config.current_ramp_amps_s);
 
 		assist_level_data.max_wheel_speed_rpm_x10 = ((int32_t)global_speed_limit_rpm * assist_level_data.level.max_speed_percent) / 10;
 

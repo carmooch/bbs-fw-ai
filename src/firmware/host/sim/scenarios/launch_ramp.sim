@@ -1,0 +1,21 @@
+title Pull away at level 5 with a 30 A/s launch ramp, then step to level 6 with its own 5 A/s ramp
+
+# Launch ramp: below 10 km/h current ramps at launch_ramp_amps_s (30 A/s, 10ms
+# per 1%) instead of the default 10 A/s (30ms per 1%). Level 6's own ramp
+# (5 A/s) applies when rolling faster. Level 5 is 26% (7.8A) at 30A max.
+config launch_ramp_amps_s 30
+config level 6 current_ramp_amps_s 5
+config pas_keep_current_percent 100
+
+at 0 level 5
+at 1000 cadence 60 over 400
+at 5000 level 6
+at 8000 cadence 0
+
+end 9000
+
+# Assist starts at ~1.48s and reaches 26% ~260ms later (10 A/s would take ~780ms).
+expect 1800 current == 26
+# Rolling above 10 km/h: level 6 (36%) ramps at 5 A/s, 60ms per 1%: 600ms for 10%.
+expect 5300 current < 36
+expect 5700 current == 36

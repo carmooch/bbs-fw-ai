@@ -1,9 +1,9 @@
 .PHONY: all clean
 
 ifeq '$(findstring ;,$(PATH))' ';'
-	UNAME := Windows
+UNAME := Windows
 else
-	UNAME := $(shell uname 2>/dev/null || echo Unknown)
+UNAME := $(shell uname 2>/dev/null || echo Unknown)
 endif
 
 # Select target controller (normally done from cmd line):

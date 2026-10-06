@@ -185,6 +185,7 @@ typedef struct
 	double pas_duty;		// fraction of each PAS pulse period PAS1 is high
 	double coast_decel;		// m/s^2 when not driven by the pedals
 	double speed_pulse;		// fraction of a revolution the speed magnet reads high
+	double battery_r;		// ohms; 0 = the voltage input is applied as-is
 
 	double wheel_circumference_m;
 	int speed_magnets;
@@ -202,6 +203,8 @@ static bool apply_bike_param(const scenario_t* s, const bike_param_t* p)
 		bike.pas_duty = p->value;
 	else if (strcmp(p->param, "coast_decel") == 0 && p->value >= 0)
 		bike.coast_decel = p->value;
+	else if (strcmp(p->param, "battery_r") == 0 && p->value >= 0 && p->value < 1)
+		bike.battery_r = p->value;
 	else
 	{
 		fprintf(stderr, "%s:%d: unknown or out-of-range bike parameter '%s'\n", s->path, p->line, p->param);
@@ -237,7 +240,14 @@ static void bike_step(double dt_s)
 	PIN_SPEED = frac(bike.wheel_revs * bike.speed_magnets) < bike.speed_pulse;
 	PIN_BRAKE = inputs[INPUT_BRAKE].value == 0;
 
-	g_hw.battery_voltage_x10 = (uint16_t)(inputs[INPUT_VOLTAGE].value * 10 + 0.5);
+	// Battery: with battery_r set, the voltage input is the resting voltage and
+	// the pack sags by current x resistance. Battery current is taken to be
+	// the current the firmware commanded (the motor controller's current loop
+	// isn't modelled).
+	double battery_a = g_hw.motor_enabled ? g_hw.motor_target_current * g_config.max_current_amps / 100.0 : 0;
+	double volts = inputs[INPUT_VOLTAGE].value - battery_a * bike.battery_r;
+	g_hw.battery_voltage_x10 = (uint16_t)(volts * 10 + 0.5);
+	g_hw.battery_current_x10 = (uint16_t)(battery_a * 10 + 0.5);
 
 	// throttle % -> mV across the configured range -> 8-bit ADC (5V reference).
 	// Released, a hall throttle sits a little below its start voltage.

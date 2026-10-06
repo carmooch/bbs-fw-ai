@@ -28,7 +28,8 @@
 #define DISCARD		-1
 
 
-#define BUFFER_SIZE			192
+// Must hold a whole config write: 4 header bytes + sizeof(config_t) + checksum.
+#define BUFFER_SIZE			240
 #define DISCARD_TIMEOUT_MS	50
 
 #define REQUEST_TYPE_READ						0x01
@@ -80,6 +81,7 @@
 
 static uint8_t msg_len;
 static uint8_t msgbuf[BUFFER_SIZE];
+typedef char extcom_buffer_fits_config[(BUFFER_SIZE >= 4 + sizeof(config_t) + 1) ? 1 : -1];
 static uint32_t last_recv_ms;
 static uint32_t discard_until_ms;
 

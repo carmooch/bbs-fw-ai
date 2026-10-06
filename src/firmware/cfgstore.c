@@ -13,6 +13,7 @@
 #include "fwconfig.h"
 
 #include <string.h>
+#include <stddef.h>
 
 #define EEPROM_CONFIG_PAGE		0
 #define EEPROM_PSTATE_PAGE		1
@@ -27,6 +28,14 @@
 #define EEPROM_ERROR_WRITE			7
 
 static const uint8_t default_current_limits[] = { 7, 10, 14, 19, 26, 36, 50, 70, 98 };
+
+// Starting points for power-based PAS levels 1-9 (ASSIST_FLAG_PAS_POWER), in
+// W/10 and W/rpm x10: level 3 at 70 rpm asks for 100 + 2.0 x 70 = 240W.
+static const uint8_t default_power_start_w_div10[] = { 5, 8, 10, 15, 20, 30, 40, 55, 75 };
+static const uint8_t default_power_w_per_rpm_x10[] = { 10, 15, 20, 30, 40, 50, 60, 80, 100 };
+
+// The version 5 layout must be an exact prefix of the current one.
+typedef char config_v5_prefix_check[(offsetof(config_t, pas_stop_predictive) == CONFIG_V5_SIZE) ? 1 : -1];
 
 #if HAS_TORQUE_SENSOR
 static const uint8_t default_torque_factors[] = { 10, 15, 23, 44, 57, 74, 88, 105, 126 };
@@ -50,6 +59,7 @@ static uint8_t write(uint8_t page, uint8_t version, uint8_t* src, uint8_t size);
 static bool read_config();
 static bool write_config();
 static void load_default_config();
+static void load_default_config_v6();
 
 static bool read_pstate();
 static bool write_pstate();
@@ -101,6 +111,19 @@ static bool read_config()
 	eventlog_write(EVT_MSG_CONFIG_READ_BEGIN);
 
 	uint8_t res = read(EEPROM_CONFIG_PAGE, CONFIG_VERSION, (uint8_t*)&g_config, sizeof(config_t));
+
+	if (res == EEPROM_ERROR_VERSION && header.version == 5)
+	{
+		// Migrate a version 5 config: its bytes are a prefix of the current
+		// layout, so read them in place, default the rest and save.
+		res = read(EEPROM_CONFIG_PAGE, 5, (uint8_t*)&g_config, CONFIG_V5_SIZE);
+		if (res == EEPROM_OK)
+		{
+			load_default_config_v6();
+			write_config();
+		}
+	}
+
 	switch (res)
 	{
 	default:
@@ -213,6 +236,35 @@ static void load_default_config()
 		g_config.assist_levels[0][i+1].target_current_percent = default_current_limits[i];
 		g_config.assist_levels[0][i+1].torque_amplification_factor_x10 = 0;
 #endif	
+	}
+
+	load_default_config_v6();
+}
+
+static void load_default_config_v6()
+{
+	g_config.pas_stop_predictive = 1;
+	g_config.pas_start_delay_pulses_rolling = 2;
+	g_config.launch_ramp_amps_s = 0;
+
+	g_config.gear_boost_max_percent = 0;
+	g_config.gear_ratio_low_x10 = 12;
+	g_config.gear_ratio_high_x10 = 30;
+
+	g_config.cadence_lock_margin_rpm = 0;
+
+	for (uint8_t mode = 0; mode < 2; ++mode)
+	{
+		g_config.assist_level_ext[mode][0].power_start_w_div10 = 0;
+		g_config.assist_level_ext[mode][0].power_w_per_rpm_x10 = 0;
+		g_config.assist_level_ext[mode][0].current_ramp_amps_s = 0;
+
+		for (uint8_t i = 0; i < 9; ++i)
+		{
+			g_config.assist_level_ext[mode][i+1].power_start_w_div10 = default_power_start_w_div10[i];
+			g_config.assist_level_ext[mode][i+1].power_w_per_rpm_x10 = default_power_w_per_rpm_x10[i];
+			g_config.assist_level_ext[mode][i+1].current_ramp_amps_s = 0;
+		}
 	}
 }
 

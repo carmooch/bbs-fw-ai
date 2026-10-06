@@ -117,8 +117,70 @@ static int test_app_brake_cuts_power_immediately(void)
 	return 1;
 }
 
+// 52V (14s) pack: 58.8V full, 42V cutoff. The low-voltage limit eases power
+// off between ~44.8V and ~43.3V. Level 9 asks for more than that limit allows.
+static void boot_52v_level_9(void)
+{
+	fake_hw_reset();
+	cfgstore_init();
+	g_config.max_battery_x100v_u16l = (uint8_t)5880;
+	g_config.max_battery_x100v_u16h = (uint8_t)(5880 >> 8);
+	g_config.low_cut_off_v = 42;
+	throttle_init(1000, 3600);
+	app_init();
+	app_set_assist_level(9);
+
+	g_hw.battery_voltage_x10 = 480;
+	g_hw.battery_current_x10 = 200;
+	pedal(70);
+
+	// the voltage filter starts high and settles over a few seconds
+	run_ms(8000);
+}
+
+static int test_app_low_voltage_limit_recovers_under_load(void)
+{
+	boot_52v_level_9();
+	uint8_t full = g_hw.motor_target_current;
+	ASSERT_TRUE(full > 50);
+
+	// a 3 s sag on a climb limits power...
+	g_hw.battery_voltage_x10 = 440;
+	run_ms(3000);
+	ASSERT_TRUE(g_hw.motor_target_current < full);
+
+	// ...and power comes back once the sag is over
+	g_hw.battery_voltage_x10 = 480;
+	run_ms(3000);
+	ASSERT_EQ(full, g_hw.motor_target_current);
+
+	return 1;
+}
+
+static int test_app_low_voltage_limit_holds_without_load(void)
+{
+	boot_52v_level_9();
+	uint8_t full = g_hw.motor_target_current;
+
+	g_hw.battery_voltage_x10 = 440;
+	run_ms(3000);
+	uint8_t limited = g_hw.motor_target_current;
+	ASSERT_TRUE(limited < full);
+
+	// The voltage recovers but the battery isn't supplying current (as when
+	// stopped): the limit holds, so the next pull-away can't surge.
+	g_hw.battery_voltage_x10 = 480;
+	g_hw.battery_current_x10 = 0;
+	run_ms(5000);
+	ASSERT_EQ(limited, g_hw.motor_target_current);
+
+	return 1;
+}
+
 void test_app_run(void)
 {
+	RUN_TEST(test_app_low_voltage_limit_recovers_under_load);
+	RUN_TEST(test_app_low_voltage_limit_holds_without_load);
 	RUN_TEST(test_app_no_power_when_parked);
 	RUN_TEST(test_app_pas_waits_for_start_delay_pulses);
 	RUN_TEST(test_app_pas_ramps_up_to_level_current);

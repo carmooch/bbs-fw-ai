@@ -1,0 +1,23 @@
+title 52V pack running flat at level 9: resting voltage falls 47.5V to 44.5V over 60 s, 0.15 ohm sag
+
+# The pack sags by current x resistance, so limiting power also shrinks the
+# sag. A low-voltage limit that reacts to the voltage it causes can hunt;
+# this scenario checks it settles, and that power still goes down as the
+# pack genuinely empties.
+config max_battery_x100v 5880
+config low_cut_off_v 42
+bike battery_r 0.15
+
+at 0 level 9
+at 0 voltage 47.5
+at 1000 cadence 70 over 500
+at 5000 voltage 44.5 over 60000
+at 70000 cadence 0
+
+end 72000
+
+# Power falls steadily as the pack empties, with no hunting: swings stay
+# within a percent or two (upstream behaved the same here).
+expect 20000 current == 61
+expect 40000 current == 45
+expect 70000 current == 25

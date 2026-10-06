@@ -81,7 +81,10 @@ Items marked *(old #n)* come from the first fork's feature catalogue on `archive
   21.3A for the rest of the ride.
 
 Fixes:
-- [ ] Low-voltage limit that recovers when the battery does, with hysteresis so it doesn't hunt
+- [x] Low-voltage limit that recovers when the battery does: slowly (0.25 V/s), and only while
+  the battery is supplying current, so it neither hunts nor lets a pull-away surge after a stop.
+  Proven in `lvc_sag.sim`, `lvc_near_empty.sim` and `lvc_restart.sim`. Still needs a bench and
+  ride check.
 - [ ] Sag compensation: estimate the battery's internal resistance from voltage/current pairs and
   judge the battery on its resting voltage, not the sag. It still protects a genuinely empty
   pack; the BMS remains the last line of defence.

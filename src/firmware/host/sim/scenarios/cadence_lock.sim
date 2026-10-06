@@ -1,0 +1,15 @@
+title Cadence lock: motor speed capped at cadence + 15 rpm (level 3)
+
+# cadence_lock_margin_rpm 15: the motor's speed cap follows the pedals, as a
+# percent of the BBSHD's 168 rpm maximum. Off, level 3 allows 100%.
+config cadence_lock_margin_rpm 15
+
+at 1000 cadence 70 over 300
+at 5000 cadence 40 over 300
+at 9000 cadence 0
+
+end 10000
+
+# (70 + 15) / 168 = 50%; (40 + 15) / 168 = 32%
+expect 4900 target_speed == 50
+expect 8900 target_speed == 32

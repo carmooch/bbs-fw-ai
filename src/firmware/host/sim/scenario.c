@@ -8,7 +8,7 @@
 
 static const char* input_names[INPUT_COUNT] =
 {
-	"cadence", "gear", "speed", "throttle", "brake", "level", "voltage"
+	"cadence", "gear", "speed", "throttle", "brake", "level", "voltage", "rider_w", "grade"
 };
 
 static const char* output_names[] = { "current", "motor", "fw_cadence" };

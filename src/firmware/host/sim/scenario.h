@@ -16,7 +16,13 @@
 //
 // Inputs:  cadence (crank rpm, negative = backwards), gear (wheel revs per
 //          crank rev), speed (km/h, sets the wheel speed instantly),
-//          throttle (%), brake (0/1), level (0-9, 10 = walk), voltage (V)
+//          throttle (%), brake (0/1), level (0-9, 10 = walk), voltage (V),
+//          rider_w (W), grade (%)
+//
+// Two modes: by default cadence is an input and the wheel follows it. Using
+// rider_w anywhere switches the scenario to physics: speed comes from rider
+// and motor power against rolling resistance, air and the grade, and cadence
+// follows from speed and gear while rider_w > 0.
 // Outputs: current (target current, %), motor (enabled 0/1),
 //          fw_cadence (rpm, as measured by the firmware)
 
@@ -35,6 +41,8 @@ typedef enum
 	INPUT_BRAKE,
 	INPUT_LEVEL,
 	INPUT_VOLTAGE,
+	INPUT_RIDER_W,
+	INPUT_GRADE,
 	INPUT_COUNT
 } input_t;
 

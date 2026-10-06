@@ -75,8 +75,12 @@ python3 sim/plot.py compare.svg before.csv after.csv --from 5800 --to 6400
 
 The bike model is deliberately simple. Keep these in mind when reading results:
 
-- The rider's cadence is an **input**. Motor power doesn't feed back into cadence or speed, so
-  the simulator shows what the firmware *asks for*, not how the bike would accelerate.
+- By default the rider's cadence is an **input**, and motor power doesn't feed back into
+  cadence or speed. Scenarios that use `rider_w` switch to **physics mode**: rider and motor
+  power move the bike (110 kg, rolling resistance 0.008, drag area 0.6 m², motor 80% efficient;
+  `bike mass_kg`, `crr`, `cda_m2`, `motor_eff` change them) up the scripted `grade`, and cadence
+  follows from speed and gear. Checked against hand calculations: 150 W on the flat settles at
+  23.1 km/h, and 200 W up 6% at 9.5 km/h.
 - PAS is modelled as a clean quadrature pair with 50% duty. The real BBSHD signal hasn't been
   measured yet (roadmap: bench measurements); `bike pas_duty <fraction>` changes the duty.
 - While pedalling, the wheel turns at cadence × `gear`. Otherwise it coasts down at

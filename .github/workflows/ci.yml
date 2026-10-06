@@ -68,6 +68,38 @@ jobs:
           name: ride-sim
           path: src/firmware/host/out/
 
+  tool-layout:
+    name: Config tool matches firmware layout
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check C# config tool against the C config_t
+        run: src/tool-check/check.sh
+
+  config-tool:
+    name: Config tool (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish
+        run: dotnet publish src/tool/bbs-fw-tool.csproj -c Release -o publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BBSFWTool
+          path: publish/
+          if-no-files-found: error
+
   line-endings:
     name: Line endings
     runs-on: ubuntu-24.04

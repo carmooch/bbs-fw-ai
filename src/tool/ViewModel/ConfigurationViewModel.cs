@@ -448,6 +448,99 @@ namespace BBSFW.ViewModel
 			}
 		}
 
+		// version 6: responsiveness and torque feel
+
+		public bool PasStopPredictive
+		{
+			get { return _config.PasStopPredictive; }
+			set
+			{
+				if (_config.PasStopPredictive != value)
+				{
+					_config.PasStopPredictive = value;
+					OnPropertyChanged(nameof(PasStopPredictive));
+				}
+			}
+		}
+
+		public uint PasStartDelayPulsesRolling
+		{
+			get { return _config.PasStartDelayPulsesRolling; }
+			set
+			{
+				if (_config.PasStartDelayPulsesRolling != value)
+				{
+					_config.PasStartDelayPulsesRolling = value;
+					OnPropertyChanged(nameof(PasStartDelayPulsesRolling));
+				}
+			}
+		}
+
+		public uint LaunchRampAmpsSecond
+		{
+			get { return _config.LaunchRampAmpsSecond; }
+			set
+			{
+				if (_config.LaunchRampAmpsSecond != value)
+				{
+					_config.LaunchRampAmpsSecond = value;
+					OnPropertyChanged(nameof(LaunchRampAmpsSecond));
+				}
+			}
+		}
+
+		public uint GearBoostMaxPercent
+		{
+			get { return _config.GearBoostMaxPercent; }
+			set
+			{
+				if (_config.GearBoostMaxPercent != value)
+				{
+					_config.GearBoostMaxPercent = value;
+					OnPropertyChanged(nameof(GearBoostMaxPercent));
+				}
+			}
+		}
+
+		public float GearRatioLow
+		{
+			get { return _config.GearRatioLow; }
+			set
+			{
+				if (_config.GearRatioLow != value)
+				{
+					_config.GearRatioLow = value;
+					OnPropertyChanged(nameof(GearRatioLow));
+				}
+			}
+		}
+
+		public float GearRatioHigh
+		{
+			get { return _config.GearRatioHigh; }
+			set
+			{
+				if (_config.GearRatioHigh != value)
+				{
+					_config.GearRatioHigh = value;
+					OnPropertyChanged(nameof(GearRatioHigh));
+				}
+			}
+		}
+
+		public uint CadenceLockMarginRpm
+		{
+			get { return _config.CadenceLockMarginRpm; }
+			set
+			{
+				if (_config.CadenceLockMarginRpm != value)
+				{
+					_config.CadenceLockMarginRpm = value;
+					OnPropertyChanged(nameof(CadenceLockMarginRpm));
+				}
+			}
+		}
+
 		public float WheelSizeInch
 		{
 			get { return _config.WheelSizeInch; }

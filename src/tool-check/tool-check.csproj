@@ -1,0 +1,30 @@
+<!--
+  Builds the config tool's Model and ViewModel code without the WPF views (so
+  it runs on Linux) and checks it reads and writes the firmware's config bytes
+  exactly. See check.sh.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>BBSFW</RootNamespace>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS8632;CA1416</NoWarn>
+    <WpfRef>$(NuGetPackageRoot)microsoft.windowsdesktop.app.ref/8.0.0/ref/net8.0/</WpfRef>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageDownload Include="Microsoft.WindowsDesktop.App.Ref" Version="[8.0.0]" />
+    <PackageReference Include="System.IO.Ports" Version="5.0.0" />
+    <PackageReference Include="System.Management" Version="6.0.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
+    <Reference Include="$(WpfRef)WindowsBase.dll" />
+    <Reference Include="$(WpfRef)PresentationCore.dll" />
+    <Reference Include="$(WpfRef)PresentationFramework.dll" />
+    <Reference Include="$(WpfRef)System.Xaml.dll" />
+    <Compile Include="../tool/Model/*.cs" />
+    <Compile Include="../tool/ViewModel/**/*.cs" />
+    <Compile Include="../tool/Properties/Settings.Designer.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

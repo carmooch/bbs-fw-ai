@@ -178,6 +178,77 @@
 
 			</Grid>
 
+			<Grid Margin="0 20 0 0">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition />
+					<ColumnDefinition Width="10" />
+					<ColumnDefinition />
+				</Grid.ColumnDefinitions>
+
+				<Grid.RowDefinitions>
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+				</Grid.RowDefinitions>
+
+				<TextBlock Grid.Row="0" Text="Torque Feel" FontSize="18" FontWeight="Bold" />
+
+				<TextBlock Grid.Column="0" Grid.Row="1" Margin="0 10 0 0" Text="Predictive Stop:">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">Stop assist as soon as the next pedal sensor pulse is overdue (twice the last pulse interval), instead of waiting for the full Stop Delay. Pedalling on after a brief slowdown picks assist straight back up.</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<CheckBox Grid.Column="2" Grid.Row="1" Margin="0 10 0 0" HorizontalAlignment="Right" IsChecked="{Binding ConfigVm.PasStopPredictive}" />
+
+				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 8 0 0" Text="Rolling Start Delay (pulses):">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">Start delay used instead of 'Start Delay' when the bike is already rolling faster than 5 km/h (needs the speed sensor). Assist starts after this many pulses plus one; 24 pulses = one crank revolution.</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<TextBox Grid.Column="2" Grid.Row="2" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.PasStartDelayPulsesRolling, UpdateSourceTrigger=PropertyChanged}" />
+
+				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 8 0 0" Text="Launch Ramp (A/s):">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">Current ramp up rate below 10 km/h, for a quicker pull-away. 0 = off (use the normal ramp rate). Needs the speed sensor.</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<TextBox Grid.Column="2" Grid.Row="3" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.LaunchRampAmpsSecond, UpdateSourceTrigger=PropertyChanged}" />
+
+				<TextBlock Grid.Column="0" Grid.Row="4" Margin="0 8 0 0" Text="Gear Boost (%):">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">Extra pedal assist in low gears, where you're climbing or starting off. The gear is worked out from the speed and pedal sensors. 0 = off.</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<TextBox Grid.Column="2" Grid.Row="4" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.GearBoostMaxPercent, UpdateSourceTrigger=PropertyChanged}" />
+
+				<TextBlock Grid.Column="0" Grid.Row="5" Margin="0 8 0 0" Text="Gear Boost Low Gear Ratio:">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">Wheel revolutions per crank revolution at or below which the full Gear Boost applies. A 38T chainring on a 32T cog is about 1.2.</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<TextBox Grid.Column="2" Grid.Row="5" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.GearRatioLow, UpdateSourceTrigger=LostFocus}" />
+
+				<TextBlock Grid.Column="0" Grid.Row="6" Margin="0 8 0 0" Text="Gear Boost High Gear Ratio:">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">Wheel revolutions per crank revolution at or above which no Gear Boost applies. A 44T chainring on an 11T cog is 4.0.</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<TextBox Grid.Column="2" Grid.Row="6" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.GearRatioHigh, UpdateSourceTrigger=LostFocus}" />
+
+				<TextBlock Grid.Column="0" Grid.Row="7" Margin="0 8 0 0" Text="Cadence Lock Margin (rpm):">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">Cap the motor's speed at your cadence plus this margin, so the motor can't run ahead of the pedals. 0 = off. Experimental: test on a stand first.</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<TextBox Grid.Column="2" Grid.Row="7" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.CadenceLockMarginRpm, UpdateSourceTrigger=PropertyChanged}" />
+
+			</Grid>
+
 		</StackPanel>
 
 		<StackPanel Grid.Column="2" Grid.Row="0">

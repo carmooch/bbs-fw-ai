@@ -1,0 +1,3 @@
+# Never convert line endings: upstream files are a mix of CRLF and LF,
+# and any conversion turns the diff against upstream into noise.
+* -text

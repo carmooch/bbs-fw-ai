@@ -11,7 +11,7 @@ namespace BBSFW.Model
 	[XmlRoot("BBSFW", Namespace ="https://github.com/danielnilsson9/bbs-fw")]
 	public class Configuration
 	{
-		public const int CurrentVersion = 5;
+		public const int CurrentVersion = 6;
 		public const int MinVersion = 1;
 		public const int MaxVersion = CurrentVersion;
 
@@ -20,6 +20,7 @@ namespace BBSFW.Model
 		public const int ByteSizeV3 = 149;
 		public const int ByteSizeV4 = 152;
 		public const int ByteSizeV5 = 154;
+		public const int ByteSizeV6 = 221;
 
 		public enum Feature
 		{
@@ -43,6 +44,8 @@ namespace BBSFW.Model
 					return ByteSizeV4;
 				case 5:
 					return ByteSizeV5;
+				case 6:
+					return ByteSizeV6;
 			}
 
 			return 0;
@@ -77,7 +80,8 @@ namespace BBSFW.Model
 			PasVariable = 0x08,
 			PasTorque = 0x10,
 			CadenceOverride = 0x20,
-			SpeedOverride = 0x40
+			SpeedOverride = 0x40,
+			PasPower = 0x80
 		};
 
 		public enum ThrottleGlobalSpeedLimitOptions
@@ -130,6 +134,16 @@ namespace BBSFW.Model
 
 			[XmlAttribute]
 			public float TorqueAmplificationFactor;
+
+			// version 6
+			[XmlAttribute]
+			public uint PowerStartWatts;
+
+			[XmlAttribute]
+			public float PowerWattsPerRpm;
+
+			[XmlAttribute]
+			public uint CurrentRampAmpsSecond;
 		}
 
 		[XmlIgnore]
@@ -205,6 +219,15 @@ namespace BBSFW.Model
 
 		public AssistLevel[] StandardAssistLevels = new AssistLevel[10];
 		public AssistLevel[] SportAssistLevels = new AssistLevel[10];
+
+		// version 6: responsiveness and torque feel
+		public bool PasStopPredictive;
+		public uint PasStartDelayPulsesRolling;
+		public uint LaunchRampAmpsSecond;
+		public uint GearBoostMaxPercent;
+		public float GearRatioLow;
+		public float GearRatioHigh;
+		public uint CadenceLockMarginRpm;
 
 		public Configuration() : this(BbsfwConnection.Controller.Unknown)
 		{ }
@@ -658,6 +681,45 @@ namespace BBSFW.Model
 			return true;
 		}
 
+		public bool ParseFromBufferV6(byte[] buffer)
+		{
+			if (buffer.Length != ByteSizeV6)
+			{
+				return false;
+			}
+
+			// version 6 appends to the version 5 layout
+			if (!ParseFromBufferV5(buffer.Take(ByteSizeV5).ToArray()))
+			{
+				return false;
+			}
+
+			using (var s = new MemoryStream(buffer, ByteSizeV5, ByteSizeV6 - ByteSizeV5))
+			{
+				var br = new BinaryReader(s);
+
+				PasStopPredictive = br.ReadBoolean();
+				PasStartDelayPulsesRolling = br.ReadByte();
+				LaunchRampAmpsSecond = br.ReadByte();
+				GearBoostMaxPercent = br.ReadByte();
+				GearRatioLow = br.ReadByte() / 10f;
+				GearRatioHigh = br.ReadByte() / 10f;
+				CadenceLockMarginRpm = br.ReadByte();
+
+				foreach (var levels in new[] { StandardAssistLevels, SportAssistLevels })
+				{
+					for (int i = 0; i < levels.Length; ++i)
+					{
+						levels[i].PowerStartWatts = br.ReadByte() * 10u;
+						levels[i].PowerWattsPerRpm = br.ReadByte() / 10f;
+						levels[i].CurrentRampAmpsSecond = br.ReadByte();
+					}
+				}
+			}
+
+			return true;
+		}
+
 		public byte[] WriteToBuffer()
 		{
 			using (var s = new MemoryStream())
@@ -722,6 +784,25 @@ namespace BBSFW.Model
 					bw.Write((byte)Math.Round(SportAssistLevels[i].TorqueAmplificationFactor * 10));
 				}
 
+				// version 6
+				bw.Write(PasStopPredictive);
+				bw.Write((byte)PasStartDelayPulsesRolling);
+				bw.Write((byte)LaunchRampAmpsSecond);
+				bw.Write((byte)GearBoostMaxPercent);
+				bw.Write((byte)Math.Round(GearRatioLow * 10));
+				bw.Write((byte)Math.Round(GearRatioHigh * 10));
+				bw.Write((byte)CadenceLockMarginRpm);
+
+				foreach (var levels in new[] { StandardAssistLevels, SportAssistLevels })
+				{
+					for (int i = 0; i < levels.Length; ++i)
+					{
+						bw.Write((byte)(levels[i].PowerStartWatts / 10u));
+						bw.Write((byte)Math.Round(levels[i].PowerWattsPerRpm * 10));
+						bw.Write((byte)levels[i].CurrentRampAmpsSecond);
+					}
+				}
+
 				return s.ToArray();
 			}
 		}
@@ -760,6 +841,14 @@ namespace BBSFW.Model
 			AssistModeSelection = cfg.AssistModeSelection;
 			AssistStartupLevel = cfg.AssistStartupLevel;
 
+			PasStopPredictive = cfg.PasStopPredictive;
+			PasStartDelayPulsesRolling = cfg.PasStartDelayPulsesRolling;
+			LaunchRampAmpsSecond = cfg.LaunchRampAmpsSecond;
+			GearBoostMaxPercent = cfg.GearBoostMaxPercent;
+			GearRatioLow = cfg.GearRatioLow;
+			GearRatioHigh = cfg.GearRatioHigh;
+			CadenceLockMarginRpm = cfg.CadenceLockMarginRpm;
+
 			for (int i = 0; i < Math.Min(cfg.StandardAssistLevels.Length, StandardAssistLevels.Length); ++i)
 			{
 				StandardAssistLevels[i].Type = cfg.StandardAssistLevels[i].Type;
@@ -768,6 +857,9 @@ namespace BBSFW.Model
 				StandardAssistLevels[i].MaxCadencePercent = cfg.StandardAssistLevels[i].MaxCadencePercent;
 				StandardAssistLevels[i].MaxSpeedPercent = cfg.StandardAssistLevels[i].MaxSpeedPercent;
 				StandardAssistLevels[i].TorqueAmplificationFactor = cfg.StandardAssistLevels[i].TorqueAmplificationFactor;
+				StandardAssistLevels[i].PowerStartWatts = cfg.StandardAssistLevels[i].PowerStartWatts;
+				StandardAssistLevels[i].PowerWattsPerRpm = cfg.StandardAssistLevels[i].PowerWattsPerRpm;
+				StandardAssistLevels[i].CurrentRampAmpsSecond = cfg.StandardAssistLevels[i].CurrentRampAmpsSecond;
 			}
 
 			for (int i = 0; i < Math.Min(cfg.SportAssistLevels.Length, SportAssistLevels.Length); ++i)
@@ -778,6 +870,9 @@ namespace BBSFW.Model
 				SportAssistLevels[i].MaxCadencePercent = cfg.SportAssistLevels[i].MaxCadencePercent;
 				SportAssistLevels[i].MaxSpeedPercent = cfg.SportAssistLevels[i].MaxSpeedPercent;
 				SportAssistLevels[i].TorqueAmplificationFactor = cfg.SportAssistLevels[i].TorqueAmplificationFactor;
+				SportAssistLevels[i].PowerStartWatts = cfg.SportAssistLevels[i].PowerStartWatts;
+				SportAssistLevels[i].PowerWattsPerRpm = cfg.SportAssistLevels[i].PowerWattsPerRpm;
+				SportAssistLevels[i].CurrentRampAmpsSecond = cfg.SportAssistLevels[i].CurrentRampAmpsSecond;
 			}
 		}
 
@@ -828,6 +923,27 @@ namespace BBSFW.Model
 			ValidateLimits(ShiftInterruptCurrentThresholdPercent, 0, 100, "Shift Interrupt Current Threshold (%)");
 
 			ValidateLimits(AssistStartupLevel, 0, 9, "Assist Startup Level");
+
+			ValidateLimits(PasStartDelayPulsesRolling, 0, 24, "Pas Rolling Start Delay (pulses)");
+			ValidateLimits(LaunchRampAmpsSecond, 0, 255, "Launch Ramp (A/s)");
+			ValidateLimits(GearBoostMaxPercent, 0, 100, "Gear Boost (%)");
+			ValidateLimits((uint)Math.Round(GearRatioLow * 10), 1, 255, "Gear Boost Low Gear Ratio (x10)");
+			ValidateLimits((uint)Math.Round(GearRatioHigh * 10), 1, 255, "Gear Boost High Gear Ratio (x10)");
+			if (GearBoostMaxPercent > 0 && GearRatioHigh <= GearRatioLow)
+			{
+				throw new Exception("Gear Boost: the high gear ratio must be above the low gear ratio.");
+			}
+			ValidateLimits(CadenceLockMarginRpm, 0, 100, "Cadence Lock Margin (rpm)");
+
+			foreach (var (levels, name) in new[] { (StandardAssistLevels, "Standard"), (SportAssistLevels, "Sport") })
+			{
+				for (int i = 0; i < levels.Length; ++i)
+				{
+					ValidateLimits(levels[i].PowerStartWatts, 0, 2550, $"{name} (Level {i}): Power Start (W)");
+					ValidateLimits((uint)Math.Round(levels[i].PowerWattsPerRpm * 10), 0, 255, $"{name} (Level {i}): Power per rpm (W/rpm x10)");
+					ValidateLimits(levels[i].CurrentRampAmpsSecond, 0, 255, $"{name} (Level {i}): Current Ramp (A/s)");
+				}
+			}
 
 			for (int i = 0; i < StandardAssistLevels.Length; ++i)
 			{

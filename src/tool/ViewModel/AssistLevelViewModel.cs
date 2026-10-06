@@ -1,7 +1,10 @@
 using BBSFW.Model;
 using BBSFW.ViewModel.Base;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows;
+using System.Windows.Media;
 
 namespace BBSFW.ViewModel
 {
@@ -23,7 +26,8 @@ namespace BBSFW.ViewModel
 		{
 			Cadence,
 			Torque,
-			Variable
+			Variable,
+			Power
 		}
 
 
@@ -51,6 +55,7 @@ namespace BBSFW.ViewModel
 				}
 
 				variants.Add(new ValueItemViewModel<AssistPasVariant>(AssistPasVariant.Variable, "Variable"));
+				variants.Add(new ValueItemViewModel<AssistPasVariant>(AssistPasVariant.Power, "Power (W from cadence)"));
 
 				return variants;
 			}
@@ -136,6 +141,10 @@ namespace BBSFW.ViewModel
 				{
 					variant = AssistPasVariant.Variable;
 				}
+				else if (_level.Type.HasFlag(Configuration.AssistFlagsType.PasPower))
+				{
+					variant = AssistPasVariant.Power;
+				}
 
 				return AssistPasVariantOptions.FirstOrDefault((e) => e.Value == variant);
 			}
@@ -147,6 +156,7 @@ namespace BBSFW.ViewModel
 					OnPropertyChanged(nameof(SelectedPasVariant));
 					OnPropertyChanged(nameof(IsPasAssistVariableVariant));
 					OnPropertyChanged(nameof(IsPasAssistTorqueVariant));
+					OnPropertyChanged(nameof(IsPasAssistPowerVariant));
 
 					switch(value.Value)
 					{
@@ -158,6 +168,7 @@ namespace BBSFW.ViewModel
 							MaxThrottlePercent = 0;
 							break;
 						case AssistPasVariant.Cadence:
+						case AssistPasVariant.Power:
 							TorqueAmplificationFactor = 0;
 							break;
 					}
@@ -214,6 +225,108 @@ namespace BBSFW.ViewModel
 			get { return _level.Type.HasFlag(Configuration.AssistFlagsType.PasTorque); }
 		}
 
+		public bool IsPasAssistPowerVariant
+		{
+			get { return _level.Type.HasFlag(Configuration.AssistFlagsType.PasPower); }
+		}
+
+		public uint PowerStartWatts
+		{
+			get { return _level.PowerStartWatts; }
+			set
+			{
+				if (_level.PowerStartWatts != value)
+				{
+					_level.PowerStartWatts = value;
+					OnPropertyChanged(nameof(PowerStartWatts));
+					OnPowerCurveChanged();
+				}
+			}
+		}
+
+		public float PowerWattsPerRpm
+		{
+			get { return _level.PowerWattsPerRpm; }
+			set
+			{
+				if (_level.PowerWattsPerRpm != value)
+				{
+					_level.PowerWattsPerRpm = value;
+					OnPropertyChanged(nameof(PowerWattsPerRpm));
+					OnPowerCurveChanged();
+				}
+			}
+		}
+
+		public uint CurrentRampAmpsSecond
+		{
+			get { return _level.CurrentRampAmpsSecond; }
+			set
+			{
+				if (_level.CurrentRampAmpsSecond != value)
+				{
+					_level.CurrentRampAmpsSecond = value;
+					OnPropertyChanged(nameof(CurrentRampAmpsSecond));
+				}
+			}
+		}
+
+		// Power curve preview: battery power (W) against cadence, 0-120 rpm, as
+		// the firmware computes it, flattened at the level's current cap. The
+		// cap in watts uses the middle of the configured battery voltage range.
+		public const double PreviewWidth = 240;
+		public const double PreviewHeight = 100;
+		private const double PreviewMaxRpm = 120;
+
+		private double PowerCapWatts
+		{
+			get
+			{
+				double volts = (_configVm.MaxBatteryVolts + _configVm.LowCutoffVolts) / 2.0;
+				return _configVm.MaxCurrentAmps * _level.MaxCurrentPercent / 100.0 * volts;
+			}
+		}
+
+		private double PowerAtCadence(double rpm)
+		{
+			return Math.Min(_level.PowerStartWatts + _level.PowerWattsPerRpm * rpm, PowerCapWatts);
+		}
+
+		private double PreviewMaxWatts
+		{
+			get { return Math.Max(100.0, Math.Max(PowerCapWatts, _level.PowerStartWatts + _level.PowerWattsPerRpm * PreviewMaxRpm)) * 1.1; }
+		}
+
+		public PointCollection PowerCurvePoints
+		{
+			get
+			{
+				var points = new PointCollection();
+				double maxWatts = PreviewMaxWatts;
+				for (int rpm = 0; rpm <= PreviewMaxRpm; rpm += 5)
+				{
+					points.Add(new Point(rpm / PreviewMaxRpm * PreviewWidth,
+						PreviewHeight - PowerAtCadence(rpm) / maxWatts * PreviewHeight));
+				}
+				return points;
+			}
+		}
+
+		public string PowerCurveSummary
+		{
+			get
+			{
+				return $"40 rpm: {PowerAtCadence(40):0} W   70 rpm: {PowerAtCadence(70):0} W   " +
+					$"100 rpm: {PowerAtCadence(100):0} W   (cap {PowerCapWatts:0} W)";
+			}
+		}
+
+		private void OnPowerCurveChanged()
+		{
+			OnPropertyChanged(nameof(PowerCurvePoints));
+			OnPropertyChanged(nameof(PowerCurveSummary));
+		}
+
 
 
 		public uint TargetCurrentPercent
@@ -225,6 +338,7 @@ namespace BBSFW.ViewModel
 				{
 					_level.MaxCurrentPercent = value;
 					OnPropertyChanged(nameof(TargetCurrentPercent));
+					OnPowerCurveChanged();
 				}
 			}
 		}
@@ -315,7 +429,7 @@ namespace BBSFW.ViewModel
 		private static Configuration.AssistFlagsType ClearPasVariantFlag(Configuration.AssistFlagsType flags)
 		{
 			byte f = (byte)flags;
-			f &= (byte)~(Configuration.AssistFlagsType.PasTorque | Configuration.AssistFlagsType.PasVariable);
+			f &= (byte)~(Configuration.AssistFlagsType.PasTorque | Configuration.AssistFlagsType.PasVariable | Configuration.AssistFlagsType.PasPower);
 
 			return (Configuration.AssistFlagsType)f;
 		}
@@ -330,6 +444,9 @@ namespace BBSFW.ViewModel
 					break;
 				case AssistPasVariant.Variable:
 					result |= Configuration.AssistFlagsType.PasVariable;
+					break;
+				case AssistPasVariant.Power:
+					result |= Configuration.AssistFlagsType.PasPower;
 					break;
 			}
 

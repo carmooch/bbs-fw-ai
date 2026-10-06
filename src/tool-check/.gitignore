@@ -1,0 +1,4 @@
+bin/
+obj/
+config_dump
+config.bin

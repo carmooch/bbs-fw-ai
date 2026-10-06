@@ -22,6 +22,8 @@
 			<RowDefinition Height="Auto" />
 			<RowDefinition Height="Auto" />
 			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
 			<RowDefinition />
 		</Grid.RowDefinitions>
 
@@ -172,6 +174,66 @@
 				</Style>
 			</TextBox.Style>
 		</TextBox>
+
+		<TextBlock Grid.Column="0" Grid.Row="8" Text="Current Ramp (A/s):" VerticalAlignment="Center" Margin="0 16 0 0">
+			<TextBlock.ToolTip>
+				<TextBlock Width="300" TextWrapping="Wrap">
+					How fast current ramps up in this level. 0 = use the global Current Ramp.
+				</TextBlock>
+			</TextBlock.ToolTip>
+		</TextBlock>
+		<TextBox Grid.Column="1" Grid.Row="8" Margin="10 16 0 0" Text="{Binding CurrentRampAmpsSecond, UpdateSourceTrigger=PropertyChanged}" />
+
+		<StackPanel Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="9" Margin="0 16 0 0">
+			<StackPanel.Style>
+				<Style TargetType="{x:Type StackPanel}">
+					<Style.Triggers>
+						<DataTrigger Binding="{Binding IsPasAssistPowerVariant}" Value="False">
+							<Setter Property="Visibility" Value="Collapsed" />
+						</DataTrigger>
+					</Style.Triggers>
+				</Style>
+			</StackPanel.Style>
+
+			<Grid>
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition />
+					<ColumnDefinition />
+				</Grid.ColumnDefinitions>
+				<Grid.RowDefinitions>
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+				</Grid.RowDefinitions>
+
+				<TextBlock Grid.Column="0" Grid.Row="0" Text="Power Start (W):" VerticalAlignment="Center">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">
+							Battery power at zero cadence. Assist = Power Start + Power per rpm x cadence,
+							capped by Max Current (%). Stored in 10 W steps.
+						</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<TextBox Grid.Column="1" Grid.Row="0" Margin="10 0 0 0" Text="{Binding PowerStartWatts, UpdateSourceTrigger=LostFocus}" />
+
+				<TextBlock Grid.Column="0" Grid.Row="1" Text="Power per rpm (W/rpm):" VerticalAlignment="Center" Margin="0 8 0 0">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">
+							Extra battery power for each rpm of cadence: pedal faster to get more help.
+							Typical values 1-10 W/rpm, in 0.1 steps.
+						</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<TextBox Grid.Column="1" Grid.Row="1" Margin="10 8 0 0" Text="{Binding PowerWattsPerRpm, UpdateSourceTrigger=LostFocus}" />
+			</Grid>
+
+			<TextBlock Margin="0 12 0 4" Text="Battery power vs cadence (0-120 rpm):" />
+			<Border BorderBrush="Gray" BorderThickness="1" HorizontalAlignment="Left" Width="242" Height="102">
+				<Canvas Width="240" Height="100" ClipToBounds="True">
+					<Polyline Points="{Binding PowerCurvePoints}" Stroke="SteelBlue" StrokeThickness="2" />
+				</Canvas>
+			</Border>
+			<TextBlock Margin="0 4 0 0" FontSize="11" Foreground="Gray" Text="{Binding PowerCurveSummary}" TextWrapping="Wrap" />
+		</StackPanel>
 
 	</Grid>
 </UserControl>

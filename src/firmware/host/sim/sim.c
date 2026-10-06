@@ -9,11 +9,14 @@
 // app) runs every 5ms.
 //
 // Bike model (deliberately simple, see "Limits" in BUILDING.md):
-// - The crank turns at the scripted cadence. PAS1/PAS2 are generated as a
+// - The crank turns at the cadence, and PAS1/PAS2 are generated as a
 //   quadrature pair, PAS_PULSES_REVOLUTION pulses per crank revolution.
-// - While pedalling, the wheel turns at cadence x gear; otherwise it
-//   coasts down at a fixed deceleration. Motor power does not feed back
-//   into speed or cadence: the rider's cadence is an input, not a result.
+// - Kinematic mode (default): cadence is scripted; while pedalling the wheel
+//   turns at cadence x gear, otherwise it coasts down at a fixed rate.
+// - Physics mode (the scenario uses rider_w): rider and motor power move the
+//   bike against rolling resistance, air and the grade, and cadence follows
+//   from speed and gear. See physics_step().
+// - Battery current is the commanded current; with battery_r the pack sags.
 // - Temperature reads as 0 C (no thermal limiting).
 
 #include <math.h>
@@ -206,6 +209,14 @@ typedef struct
 	double speed_pulse;		// fraction of a revolution the speed magnet reads high
 	double battery_r;		// ohms; 0 = the voltage input is applied as-is
 
+	// physics mode (the scenario uses rider_w)
+	bool physics;
+	double mass_kg;			// bike + rider
+	double crr;				// rolling resistance coefficient
+	double cda_m2;			// drag area
+	double motor_eff;		// battery to wheel
+	double motor_w;			// mechanical power delivered, for the output
+
 	double wheel_circumference_m;
 	int speed_magnets;
 
@@ -224,6 +235,14 @@ static bool apply_bike_param(const scenario_t* s, const bike_param_t* p)
 		bike.coast_decel = p->value;
 	else if (strcmp(p->param, "battery_r") == 0 && p->value >= 0 && p->value < 1)
 		bike.battery_r = p->value;
+	else if (strcmp(p->param, "mass_kg") == 0 && p->value > 0)
+		bike.mass_kg = p->value;
+	else if (strcmp(p->param, "crr") == 0 && p->value >= 0 && p->value < 1)
+		bike.crr = p->value;
+	else if (strcmp(p->param, "cda_m2") == 0 && p->value >= 0 && p->value < 5)
+		bike.cda_m2 = p->value;
+	else if (strcmp(p->param, "motor_eff") == 0 && p->value > 0 && p->value <= 1)
+		bike.motor_eff = p->value;
 	else
 	{
 		fprintf(stderr, "%s:%d: unknown or out-of-range bike parameter '%s'\n", s->path, p->line, p->param);
@@ -234,20 +253,76 @@ static bool apply_bike_param(const scenario_t* s, const bike_param_t* p)
 
 static double frac(double x) { return x - floor(x); }
 
+// Physics mode: speed from rider and motor power against rolling resistance,
+// air drag and the grade; while the rider is pedalling (rider_w > 0), cadence
+// follows from speed and gear. The motor's mechanical power is the battery
+// power times motor_eff, cut off as the chainring approaches the speed cap the
+// firmware set. Forces are capped at low speed (power over at least 1 m/s).
+static void physics_step(double dt_s, double battery_a, double volts)
+{
+	const double g = 9.81, rho = 1.2, v_min = 1.0;
+
+	double v = bike.wheel_rps * bike.wheel_circumference_m;
+	double gear = inputs[INPUT_GEAR].value;
+	double chainring_rpm = gear > 0 ? bike.wheel_rps / gear * 60.0 : 0;
+
+	double motor_cap_rpm = g_hw.motor_target_speed / 100.0 * MAX_CADENCE_RPM_X10 / 10.0;
+	double cap_factor = motor_cap_rpm > 0 ? (motor_cap_rpm - chainring_rpm) / (0.05 * motor_cap_rpm) : 0;
+	cap_factor = cap_factor < 0 ? 0 : (cap_factor > 1 ? 1 : cap_factor);
+	bike.motor_w = battery_a * volts * bike.motor_eff * cap_factor;
+
+	double rider_w = inputs[INPUT_RIDER_W].value > 0 ? inputs[INPUT_RIDER_W].value : 0;
+	double slope = atan(inputs[INPUT_GRADE].value / 100.0);
+
+	double force = (rider_w + bike.motor_w) / (v > v_min ? v : v_min)
+		- bike.mass_kg * g * (bike.crr * cos(slope) + sin(slope))
+		- 0.5 * rho * bike.cda_m2 * v * v;
+	if (inputs[INPUT_BRAKE].value != 0 && v > 0)
+	{
+		force -= bike.mass_kg * 3.0;
+	}
+
+	v += force / bike.mass_kg * dt_s;
+	if (v < 0)
+	{
+		v = 0;
+	}
+	bike.wheel_rps = v / bike.wheel_circumference_m;
+
+	inputs[INPUT_CADENCE].value = rider_w > 0 && gear > 0 ? bike.wheel_rps / gear * 60.0 : 0;
+}
+
 static void bike_step(double dt_s)
 {
+	// Battery: with battery_r set, the voltage input is the resting voltage and
+	// the pack sags by current x resistance. Battery current is taken to be
+	// the current the firmware commanded (the motor controller's current loop
+	// isn't modelled).
+	double battery_a = g_hw.motor_enabled ? g_hw.motor_target_current * g_config.max_current_amps / 100.0 : 0;
+	double volts = inputs[INPUT_VOLTAGE].value - battery_a * bike.battery_r;
+	g_hw.battery_voltage_x10 = (uint16_t)(volts * 10 + 0.5);
+	g_hw.battery_current_x10 = (uint16_t)(battery_a * 10 + 0.5);
+
+	if (bike.physics)
+	{
+		physics_step(dt_s, battery_a, volts);
+	}
+
 	double cadence_rpm = inputs[INPUT_CADENCE].value;
 
 	bike.crank_revs += cadence_rpm / 60.0 * dt_s;
 
-	// The freewheel lets the wheel outrun the pedals but not the reverse.
-	double driven_rps = cadence_rpm > 0 ? cadence_rpm / 60.0 * inputs[INPUT_GEAR].value : 0;
-	double coast_rps = bike.wheel_rps - bike.coast_decel / bike.wheel_circumference_m * dt_s;
-	if (coast_rps < 0)
+	if (!bike.physics)
 	{
-		coast_rps = 0;
+		// The freewheel lets the wheel outrun the pedals but not the reverse.
+		double driven_rps = cadence_rpm > 0 ? cadence_rpm / 60.0 * inputs[INPUT_GEAR].value : 0;
+		double coast_rps = bike.wheel_rps - bike.coast_decel / bike.wheel_circumference_m * dt_s;
+		if (coast_rps < 0)
+		{
+			coast_rps = 0;
+		}
+		bike.wheel_rps = MAX(driven_rps, coast_rps);
 	}
-	bike.wheel_rps = MAX(driven_rps, coast_rps);
 	bike.wheel_revs += bike.wheel_rps * dt_s;
 
 	// PAS quadrature: forwards, PAS2 reads low on PAS1's rising edge, which is
@@ -259,14 +334,6 @@ static void bike_step(double dt_s)
 	PIN_SPEED = frac(bike.wheel_revs * bike.speed_magnets) < bike.speed_pulse;
 	PIN_BRAKE = inputs[INPUT_BRAKE].value == 0;
 
-	// Battery: with battery_r set, the voltage input is the resting voltage and
-	// the pack sags by current x resistance. Battery current is taken to be
-	// the current the firmware commanded (the motor controller's current loop
-	// isn't modelled).
-	double battery_a = g_hw.motor_enabled ? g_hw.motor_target_current * g_config.max_current_amps / 100.0 : 0;
-	double volts = inputs[INPUT_VOLTAGE].value - battery_a * bike.battery_r;
-	g_hw.battery_voltage_x10 = (uint16_t)(volts * 10 + 0.5);
-	g_hw.battery_current_x10 = (uint16_t)(battery_a * 10 + 0.5);
 
 	// throttle % -> mV across the configured range -> 8-bit ADC (5V reference).
 	// Released, a hall throttle sits a little below its start voltage.
@@ -299,6 +366,9 @@ typedef struct
 	int motor_on;
 	double voltage_v;
 	int fw_battery_pct;
+	double rider_w;
+	double motor_w;
+	double grade;
 } sample_t;
 
 static sample_t* samples;
@@ -329,6 +399,9 @@ static void record(uint32_t t_ms)
 	x->motor_on = g_hw.motor_enabled;
 	x->voltage_v = g_hw.battery_voltage_x10 / 10.0;
 	x->fw_battery_pct = battery_get_percent();
+	x->rider_w = bike.physics ? inputs[INPUT_RIDER_W].value : 0;
+	x->motor_w = bike.physics ? bike.motor_w : g_hw.battery_voltage_x10 / 10.0 * x->current_a;
+	x->grade = inputs[INPUT_GRADE].value;
 }
 
 static bool write_csv(const scenario_t* s, const char* path)
@@ -343,15 +416,16 @@ static bool write_csv(const scenario_t* s, const char* path)
 	fprintf(f, "# %s\n", s->title[0] ? s->title : s->path);
 	fprintf(f, "t_ms,cadence_rpm,crank_deg,speed_kph,throttle_pct,brake,level,"
 		"fw_cadence_rpm,fw_pas_pulses,fw_pedaling,fw_speed_kph,"
-		"current_pct,current_a,target_speed_pct,motor_on,voltage_v,fw_battery_pct\n");
+		"current_pct,current_a,target_speed_pct,motor_on,voltage_v,fw_battery_pct,rider_w,motor_w,grade\n");
 
 	for (int i = 0; i < num_samples; ++i)
 	{
 		const sample_t* x = &samples[i];
-		fprintf(f, "%u,%.1f,%.1f,%.2f,%.0f,%d,%d,%.1f,%d,%d,%.2f,%d,%.2f,%d,%d,%.1f,%d\n",
+		fprintf(f, "%u,%.1f,%.1f,%.2f,%.0f,%d,%d,%.1f,%d,%d,%.2f,%d,%.2f,%d,%d,%.1f,%d,%.0f,%.0f,%.1f\n",
 			x->t_ms, x->cadence_rpm, x->crank_deg, x->speed_kph, x->throttle, x->brake, x->level,
 			x->fw_cadence_rpm, x->fw_pas_pulses, x->fw_pedaling, x->fw_speed_kph,
-			x->current_pct, x->current_a, x->target_speed_pct, x->motor_on, x->voltage_v, x->fw_battery_pct);
+			x->current_pct, x->current_a, x->target_speed_pct, x->motor_on, x->voltage_v, x->fw_battery_pct,
+			x->rider_w, x->motor_w, x->grade);
 	}
 
 	fclose(f);
@@ -525,6 +599,18 @@ int main(int argc, char** argv)
 	bike.wheel_circumference_m = EXPAND_U16(g_config.wheel_size_inch_x10_u16h, g_config.wheel_size_inch_x10_u16l)
 		/ 10.0 * 0.0254 * 3.14159265358979;
 	bike.speed_magnets = MAX(1, g_config.speed_sensor_signals);
+
+	bike.mass_kg = 110;
+	bike.crr = 0.008;
+	bike.cda_m2 = 0.6;
+	bike.motor_eff = 0.8;
+	for (int i = 0; i < s.num_events; ++i)
+	{
+		if (s.events[i].input == INPUT_RIDER_W)
+		{
+			bike.physics = true;
+		}
+	}
 
 	for (int i = 0; i < s.num_bike_params; ++i)
 	{

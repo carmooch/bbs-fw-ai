@@ -102,6 +102,8 @@ def main():
          [("speed_kph", ""), ("fw_speed_kph", "5 4")], True),
         ("Motor current requested (A)",
          [("current_a", "")], True),
+        ("Power (W): motor solid, rider dashed",
+         [("motor_w", ""), ("rider_w", "5 4")], True),
         ("Battery voltage (V)",
          [("voltage_v", "")], False),
     ]

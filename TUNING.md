@@ -7,8 +7,10 @@ time. If several change at once and the bike feels wrong, there's no telling whi
 
 1. From the latest green CI run on `master`, download **bbs-fw-BBSHD** (the firmware `.hex`) and
    **BBSFWTool** (the config tool, which needs the .NET 6 Desktop Runtime, the same as the upstream tool).
-2. Flash the hex the usual way. Your existing settings carry over: the firmware converts the old
-   config on first boot.
+2. Flash the hex the usual way, with the same STC flashing tool and cable as before (see the
+   [upstream wiki](https://github.com/danielnilsson9/bbs-fw/wiki/Flash-Firmware-(BBS02-&-BBSHD))).
+   The flashing tool hasn't changed; only the config tool is new. Your existing settings carry
+   over: the firmware converts the old config on first boot.
 3. Use the 2.0 config tool from now on. The 1.5 tool rejects the new config version, so it can't
    read or write 2.0 settings.
 

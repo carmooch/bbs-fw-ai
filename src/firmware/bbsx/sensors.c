@@ -83,6 +83,16 @@ static bool pas_stop_predictive;
 static uint16_t pas_stop_predict_periods;
 static bool pas_predictive_stopped;
 
+// Effort sensing: ticks between every edge of PAS1 and PAS2 (four per pulse,
+// 96 per crank revolution), queued for the main loop. Each entry also holds the
+// pin states after the edge, so the order of edges can be checked.
+#define PAS_EDGE_BUFFER_SIZE		32	// power of two
+static volatile uint16_t pas_edge_buffer[PAS_EDGE_BUFFER_SIZE];
+static volatile uint8_t pas_edge_head;
+static volatile uint8_t pas_edge_tail;
+static volatile bool pas_edge_overflow;
+static uint16_t pas_edge_ticks;
+
 static volatile uint16_t speed_ticks_period_length; // pulse length counted in interrupt frequency (100us)
 static uint16_t speed_period_counter;
 static bool speed_prev_state;
@@ -148,6 +158,11 @@ void sensors_init()
 	pas_stop_predictive = false;
 	pas_stop_predict_periods = 0;
 	pas_predictive_stopped = false;
+
+	pas_edge_head = 0;
+	pas_edge_tail = 0;
+	pas_edge_overflow = false;
+	pas_edge_ticks = 0;
 	speed_period_counter = 0;
 	speed_ticks_period_length = 0;
 	speed_prev_state = false;
@@ -180,6 +195,23 @@ void pas_set_stop_delay(uint16_t delay_ms)
 void pas_set_stop_predictive(bool enabled)
 {
 	pas_stop_predictive = enabled;
+}
+
+uint8_t pas_read_edges(uint16_t* dst, uint8_t max, bool* overflow)
+{
+	uint8_t n = 0;
+
+	ET0 = 0; // disable timer0 interrupts
+	while (pas_edge_tail != pas_edge_head && n < max)
+	{
+		dst[n++] = pas_edge_buffer[pas_edge_tail];
+		pas_edge_tail = (pas_edge_tail + 1) & (PAS_EDGE_BUFFER_SIZE - 1);
+	}
+	*overflow = pas_edge_overflow;
+	pas_edge_overflow = false;
+	ET0 = 1;
+
+	return n;
 }
 
 uint16_t pas_get_cadence_rpm_x10()
@@ -382,6 +414,27 @@ void sensors_timer0_isr() // runs every 100us, see timers.c
 	{
 		bool pas1 = GET_PIN_STATE(PIN_PAS1);
 		bool pas2 = GET_PIN_STATE(PIN_PAS2);
+
+		// effort sensing: queue the ticks since the previous edge on either channel
+		if (pas_edge_ticks < PAS_EDGE_TICKS_MASK)
+		{
+			pas_edge_ticks++;
+		}
+		if (pas1 != pas_prev1 || pas2 != pas_prev2)
+		{
+			uint8_t next = (pas_edge_head + 1) & (PAS_EDGE_BUFFER_SIZE - 1);
+			if (next != pas_edge_tail)
+			{
+				pas_edge_buffer[pas_edge_head] = pas_edge_ticks |
+					(pas1 ? PAS_EDGE_PAS1 : 0) | (pas2 ? PAS_EDGE_PAS2 : 0);
+				pas_edge_head = next;
+			}
+			else
+			{
+				pas_edge_overflow = true;
+			}
+			pas_edge_ticks = 0;
+		}
 
 		if (pas1 && !pas_prev1 /* && pas_period_counter > PAS_SENSOR_MIN_PULSE_MS_X10 */)
 		{

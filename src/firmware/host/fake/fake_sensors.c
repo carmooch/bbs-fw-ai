@@ -25,3 +25,12 @@ uint16_t torque_sensor_get_nm_x100() { return 0; }
 int16_t temperature_contr_x100() { return g_hw.temperature_contr_x100; }
 int16_t temperature_motor_x100() { return g_hw.temperature_motor_x100; }
 
+
+// Unit tests feed effort.c edges directly (effort_add_edge); no queue here.
+uint8_t pas_read_edges(uint16_t* dst, uint8_t max, bool* overflow)
+{
+	(void)dst;
+	(void)max;
+	*overflow = false;
+	return 0;
+}

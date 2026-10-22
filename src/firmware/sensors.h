@@ -19,6 +19,15 @@ void sensors_process();
 
 void pas_set_stop_delay(uint16_t delay_ms);
 void pas_set_stop_predictive(bool enabled);
+
+// Effort sensing (BBSHD/BBS02): 100us ticks between consecutive PAS1/PAS2
+// edges, with the pin states after each edge in the top two bits. Copies up
+// to max queued entries to dst and returns how many; *overflow is set if
+// entries were lost since the last call.
+#define PAS_EDGE_TICKS_MASK		0x3fff
+#define PAS_EDGE_PAS1			0x4000
+#define PAS_EDGE_PAS2			0x8000
+uint8_t pas_read_edges(uint16_t* dst, uint8_t max, bool* overflow);
 uint16_t pas_get_cadence_rpm_x10();
 uint16_t pas_get_pulse_counter();
 bool pas_is_pedaling_forwards();

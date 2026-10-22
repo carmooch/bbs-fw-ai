@@ -11,7 +11,7 @@ static const char* input_names[INPUT_COUNT] =
 	"cadence", "gear", "speed", "throttle", "brake", "level", "voltage", "rider_w", "grade"
 };
 
-static const char* output_names[OUTPUT_COUNT] = { "current", "motor", "fw_cadence", "target_speed" };
+static const char* output_names[OUTPUT_COUNT] = { "current", "motor", "fw_cadence", "target_speed", "fw_rider_w", "effort_learned" };
 static const char* op_names[] = { "==", "!=", "<", "<=", ">", ">=" };
 
 const char* input_name(input_t input) { return input_names[input]; }

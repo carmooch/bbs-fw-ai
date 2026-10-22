@@ -23,6 +23,7 @@
 #include "lights.h"
 #include "uart.h"
 #include "util.h"
+#include "effort.h"
 
 #define APP_PROCESS_INTERVAL_MS		5
 
@@ -57,6 +58,7 @@ void main(void)
 #if defined(BBSHD) || defined(BBS02)
 	pas_set_stop_predictive(g_config.pas_stop_predictive);
 #endif
+	effort_init();
 
 	battery_init();
 	throttle_init(
@@ -85,6 +87,7 @@ void main(void)
 
 			battery_process();
 			sensors_process();
+			effort_process();
 			extcom_process();
 			app_process();
 		}

@@ -3,9 +3,11 @@
 
     python3 plot.py out.svg run.csv [other.csv ...] [--from MS] [--to MS]
 
-Three stacked panels share the time axis: rider cadence (solid) against what
+Stacked panels share the time axis: rider cadence (solid) against what
 the firmware measured (dashed), wheel speed, and the motor current the
-firmware asked for. With several CSVs, each run gets its own colour, so a
+firmware asked for, and further panels for power, the rider power the
+firmware estimated (when there is an estimate) and battery voltage when the
+CSV has them. With several CSVs, each run gets its own colour, so a
 change can be compared against a baseline.
 """
 
@@ -104,12 +106,17 @@ def main():
          [("current_a", "")], True),
         ("Power (W): motor solid, rider dashed",
          [("motor_w", ""), ("rider_w", "5 4")], True),
+        ("Rider power (W): actual solid, firmware estimate from PAS timing dashed",
+         [("rider_w", ""), ("fw_rider_w", "5 4")], True),
         ("Battery voltage (V)",
          [("voltage_v", "")], False),
     ]
 
     # skip panels whose columns an older CSV doesn't have
     panels = [pn for pn in panels if all(key in rows[0] for _, _, rows in runs for key, _ in pn[1])]
+    # the effort estimate only when some run has one
+    panels = [pn for pn in panels if pn[1][-1][0] != "fw_rider_w" or
+              any(float(r["fw_rider_w"]) > 0 for _, _, rows in runs for r in rows)]
 
     height = TOP + len(panels) * PANEL_H + (len(panels) - 1) * GAP + BOTTOM
     plot_w = WIDTH - LEFT - RIGHT

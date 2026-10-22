@@ -11,11 +11,15 @@
 // Bike model (deliberately simple, see "Limits" in BUILDING.md):
 // - The crank turns at the cadence, and PAS1/PAS2 are generated as a
 //   quadrature pair, PAS_PULSES_REVOLUTION pulses per crank revolution.
+//   With pas_edge_error_deg each edge sits slightly off its nominal angle,
+//   like the magnets of a real sensor.
 // - Kinematic mode (default): cadence is scripted; while pedalling the wheel
 //   turns at cadence x gear, otherwise it coasts down at a fixed rate.
 // - Physics mode (the scenario uses rider_w): rider and motor power move the
 //   bike against rolling resistance, air and the grade, and cadence follows
-//   from speed and gear. See physics_step().
+//   from speed and gear. See physics_step(). With pedal_stroke the rider's
+//   push peaks twice per revolution (once per leg), so the bike and crank
+//   speed up and slow down slightly within each stroke, as on a real bike.
 // - Battery current is the commanded current; with battery_r the pack sags.
 // - Temperature reads as 0 C (no thermal limiting).
 
@@ -32,12 +36,14 @@
 #include "app.h"
 #include "battery.h"
 #include "cfgstore.h"
+#include "effort.h"
 #include "eventlog.h"
 #include "fwconfig.h"
 #include "sensors.h"
 #include "throttle.h"
 #include "util.h"
 
+#define PI						3.14159265358979
 #define ISR_PERIOD_US			100
 #define APP_PROCESS_INTERVAL_MS	5		// main.c
 #define BOOT_MS					1000	// fake_hw_reset() starts the clock here
@@ -71,6 +77,7 @@ static const u8_field_t u8_fields[] =
 	U8(pas_stop_predictive), U8(pas_start_delay_pulses_rolling), U8(launch_ramp_amps_s),
 	U8(gear_boost_max_percent), U8(gear_ratio_low_x10), U8(gear_ratio_high_x10),
 	U8(cadence_lock_margin_rpm),
+	U8(display_range_field), U8(effort_mass_kg), U8(effort_stroke_x100), U8(effort_max_speed_kph),
 };
 
 static const u16_field_t u16_fields[] =
@@ -111,6 +118,11 @@ static bool apply_override(const scenario_t* s, const config_override_t* o)
 				level[level_fields[i].offset] = (uint8_t)o->value;
 				return true;
 			}
+		}
+		if (strcmp(o->field, "effort_x10") == 0)
+		{
+			g_config.assist_effort_x10[OPERATION_MODE_DEFAULT][o->level] = (uint8_t)o->value;
+			return true;
 		}
 		uint8_t* ext = (uint8_t*)&g_config.assist_level_ext[OPERATION_MODE_DEFAULT][o->level];
 		for (size_t i = 0; i < COUNT(level_ext_fields); ++i)
@@ -216,6 +228,12 @@ typedef struct
 	double cda_m2;			// drag area
 	double motor_eff;		// battery to wheel
 	double motor_w;			// mechanical power delivered, for the output
+	double pedal_stroke;	// rider torque swings by this fraction of its mean, twice per revolution
+
+	// PAS edges in crank degrees: PAS1 rise, PAS2 rise, PAS1 fall, PAS2 fall
+	// for each pulse
+	double pas_edge_error_deg;
+	double pas_edge_deg[PAS_PULSES_REVOLUTION * 4];
 
 	double wheel_circumference_m;
 	int speed_magnets;
@@ -243,6 +261,10 @@ static bool apply_bike_param(const scenario_t* s, const bike_param_t* p)
 		bike.cda_m2 = p->value;
 	else if (strcmp(p->param, "motor_eff") == 0 && p->value > 0 && p->value <= 1)
 		bike.motor_eff = p->value;
+	else if (strcmp(p->param, "pedal_stroke") == 0 && p->value >= 0 && p->value <= 1)
+		bike.pedal_stroke = p->value;
+	else if (strcmp(p->param, "pas_edge_error_deg") == 0 && p->value >= 0 && p->value <= 0.5)
+		bike.pas_edge_error_deg = p->value;
 	else
 	{
 		fprintf(stderr, "%s:%d: unknown or out-of-range bike parameter '%s'\n", s->path, p->line, p->param);
@@ -252,6 +274,52 @@ static bool apply_bike_param(const scenario_t* s, const bike_param_t* p)
 }
 
 static double frac(double x) { return x - floor(x); }
+
+// Places the PAS edges: nominal quadrature (PAS2 a quarter pulse behind
+// PAS1, both high pas_duty of each pulse), each edge then moved by a fixed
+// error of about pas_edge_error_deg (Gaussian, the same for every run).
+static void place_pas_edges(void)
+{
+	const double pulse_deg = 360.0 / PAS_PULSES_REVOLUTION;
+	uint32_t seed = 12345;
+
+	for (int k = 0; k < PAS_PULSES_REVOLUTION; ++k)
+	{
+		const double nominal[4] = { 0, 0.25, bike.pas_duty, bike.pas_duty + 0.25 };
+		for (int e = 0; e < 4; ++e)
+		{
+			double u[2];
+			for (int i = 0; i < 2; ++i)
+			{
+				seed = seed * 1103515245u + 12345u;
+				u[i] = ((seed >> 8) + 1.0) / (double)(1u << 24);
+			}
+			double err = bike.pas_edge_error_deg * sqrt(-2 * log(u[0])) * cos(2 * PI * u[1]);
+			bike.pas_edge_deg[k * 4 + e] = (k + nominal[e]) * pulse_deg + err;
+		}
+	}
+}
+
+// true when the crank angle (0-360 degrees) is between a pulse's rise and
+// fall edges; neighbouring pulses are checked too, as errors can move an edge
+// past a pulse boundary
+static bool pas_pin_high(double deg, int rise, int fall)
+{
+	const double pulse_deg = 360.0 / PAS_PULSES_REVOLUTION;
+	int k = (int)(deg / pulse_deg);
+
+	for (int j = k - 1; j <= k + 1; ++j)
+	{
+		// j = -1 and j = PAS_PULSES_REVOLUTION are pulses across 0 degrees
+		int pulse = (j + PAS_PULSES_REVOLUTION) % PAS_PULSES_REVOLUTION;
+		double wrap = (j - pulse) / PAS_PULSES_REVOLUTION * 360.0;
+		if (deg >= bike.pas_edge_deg[pulse * 4 + rise] + wrap && deg < bike.pas_edge_deg[pulse * 4 + fall] + wrap)
+		{
+			return true;
+		}
+	}
+	return false;
+}
 
 // Physics mode: speed from rider and motor power against rolling resistance,
 // air drag and the grade; while the rider is pedalling (rider_w > 0), cadence
@@ -272,6 +340,8 @@ static void physics_step(double dt_s, double battery_a, double volts)
 	bike.motor_w = battery_a * volts * bike.motor_eff * cap_factor;
 
 	double rider_w = inputs[INPUT_RIDER_W].value > 0 ? inputs[INPUT_RIDER_W].value : 0;
+	// each leg pushes hardest halfway down: twice per revolution
+	rider_w *= 1 + bike.pedal_stroke * cos(4 * PI * bike.crank_revs);
 	double slope = atan(inputs[INPUT_GRADE].value / 100.0);
 
 	double force = (rider_w + bike.motor_w) / (v > v_min ? v : v_min)
@@ -327,9 +397,9 @@ static void bike_step(double dt_s)
 
 	// PAS quadrature: forwards, PAS2 reads low on PAS1's rising edge, which is
 	// what sensors.c takes as "not backwards".
-	double phase = frac(bike.crank_revs * PAS_PULSES_REVOLUTION);
-	PIN_PAS1 = phase < bike.pas_duty;
-	PIN_PAS2 = frac(phase - 0.25) < bike.pas_duty;
+	double crank_deg = frac(bike.crank_revs) * 360.0;
+	PIN_PAS1 = pas_pin_high(crank_deg, 0, 2);
+	PIN_PAS2 = pas_pin_high(crank_deg, 1, 3);
 
 	PIN_SPEED = frac(bike.wheel_revs * bike.speed_magnets) < bike.speed_pulse;
 	PIN_BRAKE = inputs[INPUT_BRAKE].value == 0;
@@ -369,6 +439,8 @@ typedef struct
 	double rider_w;
 	double motor_w;
 	double grade;
+	int fw_rider_w;
+	int fw_effort_learned;
 } sample_t;
 
 static sample_t* samples;
@@ -402,6 +474,8 @@ static void record(uint32_t t_ms)
 	x->rider_w = bike.physics ? inputs[INPUT_RIDER_W].value : 0;
 	x->motor_w = bike.physics ? bike.motor_w : g_hw.battery_voltage_x10 / 10.0 * x->current_a;
 	x->grade = inputs[INPUT_GRADE].value;
+	x->fw_rider_w = effort_get_rider_power_w();
+	x->fw_effort_learned = effort_get_learned_percent();
 }
 
 static bool write_csv(const scenario_t* s, const char* path)
@@ -416,16 +490,17 @@ static bool write_csv(const scenario_t* s, const char* path)
 	fprintf(f, "# %s\n", s->title[0] ? s->title : s->path);
 	fprintf(f, "t_ms,cadence_rpm,crank_deg,speed_kph,throttle_pct,brake,level,"
 		"fw_cadence_rpm,fw_pas_pulses,fw_pedaling,fw_speed_kph,"
-		"current_pct,current_a,target_speed_pct,motor_on,voltage_v,fw_battery_pct,rider_w,motor_w,grade\n");
+		"current_pct,current_a,target_speed_pct,motor_on,voltage_v,fw_battery_pct,rider_w,motor_w,grade,"
+		"fw_rider_w,fw_effort_learned\n");
 
 	for (int i = 0; i < num_samples; ++i)
 	{
 		const sample_t* x = &samples[i];
-		fprintf(f, "%u,%.1f,%.1f,%.2f,%.0f,%d,%d,%.1f,%d,%d,%.2f,%d,%.2f,%d,%d,%.1f,%d,%.0f,%.0f,%.1f\n",
+		fprintf(f, "%u,%.1f,%.1f,%.2f,%.0f,%d,%d,%.1f,%d,%d,%.2f,%d,%.2f,%d,%d,%.1f,%d,%.0f,%.0f,%.1f,%d,%d\n",
 			x->t_ms, x->cadence_rpm, x->crank_deg, x->speed_kph, x->throttle, x->brake, x->level,
 			x->fw_cadence_rpm, x->fw_pas_pulses, x->fw_pedaling, x->fw_speed_kph,
 			x->current_pct, x->current_a, x->target_speed_pct, x->motor_on, x->voltage_v, x->fw_battery_pct,
-			x->rider_w, x->motor_w, x->grade);
+			x->rider_w, x->motor_w, x->grade, x->fw_rider_w, x->fw_effort_learned);
 	}
 
 	fclose(f);
@@ -535,6 +610,8 @@ static bool check_expects(const scenario_t* s)
 		case OUTPUT_MOTOR: actual = at->motor_on; break;
 		case OUTPUT_FW_CADENCE: actual = at->fw_cadence_rpm; break;
 		case OUTPUT_TARGET_SPEED: actual = at->target_speed_pct; break;
+		case OUTPUT_FW_RIDER_W: actual = at->fw_rider_w; break;
+		case OUTPUT_EFFORT_LEARNED: actual = at->fw_effort_learned; break;
 		case OUTPUT_COUNT: break;
 		}
 
@@ -599,7 +676,7 @@ int main(int argc, char** argv)
 	bike.coast_decel = 0.3;
 	bike.speed_pulse = 0.05;
 	bike.wheel_circumference_m = EXPAND_U16(g_config.wheel_size_inch_x10_u16h, g_config.wheel_size_inch_x10_u16l)
-		/ 10.0 * 0.0254 * 3.14159265358979;
+		/ 10.0 * 0.0254 * PI;
 	bike.speed_magnets = MAX(1, g_config.speed_sensor_signals);
 
 	bike.mass_kg = 110;
@@ -626,11 +703,13 @@ int main(int argc, char** argv)
 	inputs[INPUT_VOLTAGE].value = 52.0;
 	inputs[INPUT_LEVEL].value = g_config.assist_startup_level;
 
+	place_pas_edges();
 	bike_step(0);
 	sensors_init();
 	speed_sensor_set_signals_per_rpm(g_config.speed_sensor_signals);
 	pas_set_stop_delay((uint16_t)g_config.pas_stop_delay_x100s * 10);
 	pas_set_stop_predictive(g_config.pas_stop_predictive);
+	effort_init();
 
 	battery_init();
 	throttle_init(
@@ -681,6 +760,7 @@ int main(int argc, char** argv)
 
 			battery_process();
 			sensors_process();
+			effort_process();
 			app_process();
 			record(t_ms);
 		}

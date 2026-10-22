@@ -1,0 +1,56 @@
+title Effort assist: learn the PAS pattern cruising, then climb at 100 W and 250 W (physics)
+
+# A real-looking sensor (edges up to ~0.3 deg off) and a rider whose push
+# swings +/-80% around its mean twice per revolution. The firmware learns the
+# sensor's edge pattern while cruising downhill at 32 km/h in a tall gear,
+# then estimates the rider's power from how the crank speeds up and slows
+# down within each stroke.
+bike pedal_stroke 0.8
+bike pas_edge_error_deg 0.3
+
+# Level 3: motor power = 2x the estimated rider power (effort_x10 20), at
+# most 40% of max current. Until the estimate is valid (the first pedal
+# strokes) it works as a normal fixed-current level, 40%.
+config level 3 effort_x10 20
+config level 3 target_current_percent 40
+
+# cruise: no assist, 150 W, -2%, gear 3.0 (~80 rpm at 32 km/h)
+at 0 level 0
+at 0 speed 32
+at 0 gear 3.0
+at 0 grade -2
+at 0 rider_w 150
+
+# stop
+at 190000 rider_w 0
+at 190000 brake 1
+at 196000 brake 0
+
+# climb 6% in a low gear, assist on: 100 W, then 250 W a gear up
+at 200000 gear 1.2
+at 200000 grade 6
+at 200000 level 3
+at 200000 rider_w 100
+at 220000 rider_w 250
+at 220000 gear 2.0
+
+end 240000
+
+# learning: ~1.35 revolutions/s, 200 revolutions
+expect 75000 effort_learned >= 45
+expect 75000 effort_learned <= 55
+expect 189000 effort_learned == 100
+# cruising at 32 km/h is above effort_max_speed_kph (25): no estimate
+expect 189000 fw_rider_w == 0
+
+# The estimate reads ~15-20% low here: the rider pushed 150 W while the
+# pattern was learned and the firmware assumes 100 W (LEARN_ASSUMED_RIDER_W).
+expect 219000 fw_rider_w >= 70
+expect 219000 fw_rider_w <= 115
+expect 239000 fw_rider_w >= 190
+expect 239000 fw_rider_w <= 275
+# motor = 2x estimate, from 52 V at 30 A max (1560 W)
+expect 219000 current >= 8
+expect 219000 current <= 15
+expect 239000 current >= 24
+expect 239000 current <= 36

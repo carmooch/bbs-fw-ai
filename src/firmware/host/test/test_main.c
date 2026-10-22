@@ -45,6 +45,7 @@ void test_throttle_run(void);
 void test_battery_run(void);
 void test_cfgstore_run(void);
 void test_app_run(void);
+void test_effort_run(void);
 
 int main(void)
 {
@@ -52,6 +53,7 @@ int main(void)
 	test_battery_run();
 	test_cfgstore_run();
 	test_app_run();
+	test_effort_run();
 
 	printf("\n%d run, %d failed\n", tests_run, tests_failed);
 	return tests_failed != 0;

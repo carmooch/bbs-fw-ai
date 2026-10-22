@@ -11,6 +11,7 @@
 #define INTERRUPT_USING(name, vector,regnum)	void name()
 
 #define __interrupt(vector)						
+#define __reentrant
 
 #define enableInterrupts()
 #define disableInterrupts()

@@ -22,6 +22,7 @@ LOGIC_SRCS = \
 	$(FW)/app.c \
 	$(FW)/battery.c \
 	$(FW)/cfgstore.c \
+	$(FW)/effort.c \
 	$(FW)/eventlog.c \
 	$(FW)/throttle.c
 
@@ -32,6 +33,7 @@ TEST_SRCS = \
 	test/test_app.c \
 	test/test_battery.c \
 	test/test_cfgstore.c \
+	test/test_effort.c \
 	test/test_throttle.c
 
 # The simulator runs the real PAS/speed/brake sensor code.
@@ -49,7 +51,7 @@ SCENARIOS = $(wildcard sim/scenarios/*.sim)
 all: test_runner ride_sim
 
 test_runner: $(LOGIC_SRCS) $(TEST_SRCS) $(HEADERS)
-	$(CC) $(CFLAGS) -o $@ $(LOGIC_SRCS) $(TEST_SRCS)
+	$(CC) $(CFLAGS) -o $@ $(LOGIC_SRCS) $(TEST_SRCS) -lm
 
 ride_sim: $(LOGIC_SRCS) $(SIM_SRCS) $(HEADERS)
 	$(CC) $(CFLAGS) -o $@ $(LOGIC_SRCS) $(SIM_SRCS) -lm

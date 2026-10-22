@@ -17,6 +17,7 @@
 #include "eventlog.h"
 #include "util.h"
 #include "system.h"
+#include "effort.h"
 
 
 typedef struct
@@ -37,6 +38,9 @@ typedef struct
 	// config version 6 per-level settings
 	assist_level_ext_t ext;
 	uint16_t ramp_up_current_interval_ms;
+
+	// config version 7: motor W per estimated rider W, x10 (0 = off)
+	uint8_t effort_x10;
 
 } assist_level_data_t;
 
@@ -80,6 +84,7 @@ static bool lights_state = false;
 
 void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent);
 uint8_t compute_pas_power_current();
+uint8_t power_to_level_current(uint32_t power_w_x10);
 uint8_t apply_gear_boost(uint8_t current);
 uint8_t apply_cadence_lock(uint8_t target_cadence);
 uint16_t ramp_interval_ms(uint8_t amps_per_second);
@@ -454,6 +459,16 @@ void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent)
 					*target_current = current;
 				}
 			}
+			else if (assist_level_data.effort_x10 > 0 && effort_is_valid())
+			{
+				// effort assist: motor power follows the rider's estimated power
+				uint8_t current = power_to_level_current(
+					(uint32_t)effort_get_rider_power_w() * assist_level_data.effort_x10);
+				if (current > *target_current)
+				{
+					*target_current = current;
+				}
+			}
 			else if (assist_level_data.level.flags & ASSIST_FLAG_PAS_POWER)
 			{
 				uint8_t current = apply_gear_boost(compute_pas_power_current());
@@ -501,6 +516,13 @@ uint8_t compute_pas_power_current()
 	uint32_t power_w_x10 = (uint32_t)assist_level_data.ext.power_start_w_div10 * 100u +
 		((uint32_t)assist_level_data.ext.power_w_per_rpm_x10 * pas_get_cadence_rpm_x10()) / 10u;
 
+	return power_to_level_current(power_w_x10);
+}
+
+// Battery power (W x10) -> percent of max current at the battery's voltage,
+// capped at the level's target current.
+uint8_t power_to_level_current(uint32_t power_w_x10)
+{
 	// clamp to 24V if no reading is available yet, as apply_pas_torque does
 	uint16_t battery_voltage_x10 = MAX(motor_get_battery_voltage_x10(), 240);
 	uint32_t current_amp_x10 = (power_w_x10 * 10u) / battery_voltage_x10;
@@ -1112,6 +1134,7 @@ void reload_assist_params()
 	{
 		assist_level_data.level = g_config.assist_levels[operation_mode][assist_level];
 		assist_level_data.ext = g_config.assist_level_ext[operation_mode][assist_level];
+		assist_level_data.effort_x10 = g_config.assist_effort_x10[operation_mode][assist_level];
 		assist_level_data.ramp_up_current_interval_ms = ramp_interval_ms(
 			assist_level_data.ext.current_ramp_amps_s > 0 ? assist_level_data.ext.current_ramp_amps_s : g_config.current_ramp_amps_s);
 

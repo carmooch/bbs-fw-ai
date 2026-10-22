@@ -175,6 +175,14 @@
 #define DISPLAY_RANGE_FIELD_ZERO				0
 #define DISPLAY_RANGE_FIELD_TEMPERATURE			1	// max temperature of controller / motor
 #define DISPLAY_RANGE_FIELD_POWER				2	// requested current x10 (lights off) / actual current x10 (lights on)
+#define DISPLAY_RANGE_FIELD_RIDER_POWER			3	// estimated rider power (W), see effort.c
+
+// Effort sensing needs every PAS edge timed (bbsx/sensors.c).
+#if defined(BBSHD) || defined(BBS02)
+	#define HAS_PAS_EDGE_TIMING				1
+#else
+	#define HAS_PAS_EDGE_TIMING				0
+#endif
 
 // uncomment and select option above
 // #define DISPLAY_RANGE_FIELD_DATA		DISPLAY_RANGE_FIELD_ZERO

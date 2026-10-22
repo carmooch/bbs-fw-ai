@@ -25,7 +25,9 @@
 // follows from speed and gear while rider_w > 0.
 // Outputs: current (target current, %), motor (enabled 0/1),
 //          fw_cadence (rpm, as measured by the firmware),
-//          target_speed (motor speed cap, % of its maximum)
+//          target_speed (motor speed cap, % of its maximum),
+//          fw_rider_w (rider power estimated from PAS timing, W),
+//          effort_learned (PAS edge pattern learning progress, %)
 
 #ifndef _SCENARIO_H_
 #define _SCENARIO_H_
@@ -53,6 +55,8 @@ typedef enum
 	OUTPUT_MOTOR,
 	OUTPUT_FW_CADENCE,
 	OUTPUT_TARGET_SPEED,
+	OUTPUT_FW_RIDER_W,
+	OUTPUT_EFFORT_LEARNED,
 	OUTPUT_COUNT
 } output_t;
 

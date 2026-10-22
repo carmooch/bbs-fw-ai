@@ -55,7 +55,7 @@
 #define LIGHTS_MODE_ALWAYS_ON			2
 #define LIGHTS_MODE_BRAKE_LIGHT			3
 
-#define CONFIG_VERSION					6
+#define CONFIG_VERSION					7
 #define PSTATE_VERSION					1
 
 
@@ -167,10 +167,29 @@ typedef struct
 	uint8_t cadence_lock_margin_rpm;
 
 	assist_level_ext_t assist_level_ext[2][10];
+
+	// --- added in config version 7, see CONFIG_V6_SIZE ---
+
+	// what the display's Range field shows, DISPLAY_RANGE_FIELD_* in fwconfig.h
+	uint8_t display_range_field;
+
+	// effort sensing (effort.c): bike + rider mass (kg), the rider's pedal
+	// stroke (how much torque swings around its mean, x100) and the speed
+	// above which effort assist hands back to the level's normal mode
+	uint8_t effort_mass_kg;
+	uint8_t effort_stroke_x100;
+	uint8_t effort_max_speed_kph;
+
+	// effort assist per level: motor watts per estimated rider watt, x10.
+	// 0 = off (the level works as configured)
+	uint8_t assist_effort_x10[2][10];
 } config_t;
 
 // Size of a version 5 config: everything before the version 6 additions.
 #define CONFIG_V5_SIZE		154
+
+// Size of a version 6 config: everything before the version 7 additions.
+#define CONFIG_V6_SIZE		221
 
 typedef struct
 {
@@ -189,5 +208,9 @@ bool cfgstore_save_config();
 
 bool cfgstore_reset_pstate();
 bool cfgstore_save_pstate();
+
+// Learned PAS magnet pattern for effort sensing (its own EEPROM page).
+bool cfgstore_read_effort_pattern(uint8_t* dst, uint8_t size);
+bool cfgstore_write_effort_pattern(uint8_t* src, uint8_t size);
 
 #endif

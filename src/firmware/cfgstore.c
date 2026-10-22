@@ -17,6 +17,9 @@
 
 #define EEPROM_CONFIG_PAGE		0
 #define EEPROM_PSTATE_PAGE		1
+#define EEPROM_EFFORT_PAGE		2
+
+#define EFFORT_PATTERN_VERSION	1
 
 #define EEPROM_OK					0
 #define EEPROM_ERROR_SELECT_PAGE	1
@@ -36,6 +39,7 @@ static const uint8_t default_power_w_per_rpm_x10[] = { 10, 15, 20, 30, 40, 50, 6
 
 // The version 5 layout must be an exact prefix of the current one.
 typedef char config_v5_prefix_check[(offsetof(config_t, pas_stop_predictive) == CONFIG_V5_SIZE) ? 1 : -1];
+typedef char config_v6_prefix_check[(offsetof(config_t, display_range_field) == CONFIG_V6_SIZE) ? 1 : -1];
 
 #if HAS_TORQUE_SENSOR
 static const uint8_t default_torque_factors[] = { 10, 15, 23, 44, 57, 74, 88, 105, 126 };
@@ -60,6 +64,7 @@ static bool read_config();
 static bool write_config();
 static void load_default_config();
 static void load_default_config_v6();
+static void load_default_config_v7();
 
 static bool read_pstate();
 static bool write_pstate();
@@ -112,14 +117,20 @@ static bool read_config()
 
 	uint8_t res = read(EEPROM_CONFIG_PAGE, CONFIG_VERSION, (uint8_t*)&g_config, sizeof(config_t));
 
-	if (res == EEPROM_ERROR_VERSION && header.version == 5)
+	// Migrate an older config: each version's bytes are a prefix of the
+	// current layout, so read them in place, default the rest and save.
+	if (res == EEPROM_ERROR_VERSION && (header.version == 5 || header.version == 6))
 	{
-		// Migrate a version 5 config: its bytes are a prefix of the current
-		// layout, so read them in place, default the rest and save.
-		res = read(EEPROM_CONFIG_PAGE, 5, (uint8_t*)&g_config, CONFIG_V5_SIZE);
+		uint8_t old_version = header.version;
+		res = read(EEPROM_CONFIG_PAGE, old_version, (uint8_t*)&g_config,
+			old_version == 5 ? CONFIG_V5_SIZE : CONFIG_V6_SIZE);
 		if (res == EEPROM_OK)
 		{
-			load_default_config_v6();
+			if (old_version == 5)
+			{
+				load_default_config_v6();
+			}
+			load_default_config_v7();
 			write_config();
 		}
 	}
@@ -239,6 +250,28 @@ static void load_default_config()
 	}
 
 	load_default_config_v6();
+	load_default_config_v7();
+}
+
+static void load_default_config_v7()
+{
+	g_config.display_range_field = DISPLAY_RANGE_FIELD_DATA;
+
+	g_config.effort_mass_kg = 110;
+	g_config.effort_stroke_x100 = 80;
+	g_config.effort_max_speed_kph = 25;
+
+	memset(&g_config.assist_effort_x10, 0, sizeof(g_config.assist_effort_x10));
+}
+
+bool cfgstore_read_effort_pattern(uint8_t* dst, uint8_t size)
+{
+	return read(EEPROM_EFFORT_PAGE, EFFORT_PATTERN_VERSION, dst, size) == EEPROM_OK;
+}
+
+bool cfgstore_write_effort_pattern(uint8_t* src, uint8_t size)
+{
+	return write(EEPROM_EFFORT_PAGE, EFFORT_PATTERN_VERSION, src, size) == EEPROM_OK;
 }
 
 static void load_default_config_v6()

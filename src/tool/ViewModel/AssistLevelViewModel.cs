@@ -271,6 +271,19 @@ namespace BBSFW.ViewModel
 			}
 		}
 
+		public float EffortAssistFactor
+		{
+			get { return _level.EffortAssistFactor; }
+			set
+			{
+				if (_level.EffortAssistFactor != value)
+				{
+					_level.EffortAssistFactor = value;
+					OnPropertyChanged(nameof(EffortAssistFactor));
+				}
+			}
+		}
+
 		// Power curve preview: battery power (W) against cadence, 0-120 rpm, as
 		// the firmware computes it, flattened at the level's current cap. The
 		// cap in watts uses the middle of the configured battery voltage range.

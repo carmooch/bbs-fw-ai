@@ -414,6 +414,9 @@ namespace BBSFW.Model
 					case 6:
 						cfg.ParseFromBufferV6(_rxBuffer.Skip(4).Take(Configuration.GetByteSize(version)).ToArray());
 						break;
+					case 7:
+						cfg.ParseFromBufferV7(_rxBuffer.Skip(4).Take(Configuration.GetByteSize(version)).ToArray());
+						break;
 				}
 
 				_readConfigCq.Complete(cfg);

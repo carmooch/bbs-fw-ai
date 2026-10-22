@@ -55,6 +55,15 @@ namespace BBSFW.ViewModel
 				new ValueItemViewModel<Configuration.WalkModeData>(Configuration.WalkModeData.BatteryPercent, "Battery Level (%)")
 			};
 
+		public static List<ValueItemViewModel<Configuration.RangeFieldData>> RangeFieldDisplayOptions { get; } =
+			new List<ValueItemViewModel<Configuration.RangeFieldData>>
+			{
+				new ValueItemViewModel<Configuration.RangeFieldData>(Configuration.RangeFieldData.Zero, "Nothing (0)"),
+				new ValueItemViewModel<Configuration.RangeFieldData>(Configuration.RangeFieldData.Temperature, "Temperature"),
+				new ValueItemViewModel<Configuration.RangeFieldData>(Configuration.RangeFieldData.Power, "Current (A x10)"),
+				new ValueItemViewModel<Configuration.RangeFieldData>(Configuration.RangeFieldData.RiderPower, "Your Power (W)"),
+			};
+
 		public static List<ValueItemViewModel<Configuration.ThrottleGlobalSpeedLimitOptions>> ThrottleGlobalSpeedLimitOptions { get; } =
 			new List<ValueItemViewModel<Configuration.ThrottleGlobalSpeedLimitOptions>>
 			{
@@ -537,6 +546,63 @@ namespace BBSFW.ViewModel
 				{
 					_config.CadenceLockMarginRpm = value;
 					OnPropertyChanged(nameof(CadenceLockMarginRpm));
+				}
+			}
+		}
+
+		// version 7: effort sensing
+
+		public ValueItemViewModel<Configuration.RangeFieldData> RangeFieldDisplay
+		{
+			get
+			{
+				return RangeFieldDisplayOptions.FirstOrDefault((e) => e.Value == _config.RangeFieldDisplay);
+			}
+			set
+			{
+				if (_config.RangeFieldDisplay != value.Value)
+				{
+					_config.RangeFieldDisplay = value.Value;
+					OnPropertyChanged(nameof(RangeFieldDisplay));
+				}
+			}
+		}
+
+		public uint EffortMassKg
+		{
+			get { return _config.EffortMassKg; }
+			set
+			{
+				if (_config.EffortMassKg != value)
+				{
+					_config.EffortMassKg = value;
+					OnPropertyChanged(nameof(EffortMassKg));
+				}
+			}
+		}
+
+		public uint EffortStrokePercent
+		{
+			get { return _config.EffortStrokePercent; }
+			set
+			{
+				if (_config.EffortStrokePercent != value)
+				{
+					_config.EffortStrokePercent = value;
+					OnPropertyChanged(nameof(EffortStrokePercent));
+				}
+			}
+		}
+
+		public uint EffortMaxSpeedKph
+		{
+			get { return _config.EffortMaxSpeedKph; }
+			set
+			{
+				if (_config.EffortMaxSpeedKph != value)
+				{
+					_config.EffortMaxSpeedKph = value;
+					OnPropertyChanged(nameof(EffortMaxSpeedKph));
 				}
 			}
 		}

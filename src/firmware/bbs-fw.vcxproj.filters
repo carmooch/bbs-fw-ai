@@ -30,6 +30,9 @@
     <ClCompile Include="app.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="effort.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="eventlog.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -120,6 +123,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="app.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="effort.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="eventlog.h">

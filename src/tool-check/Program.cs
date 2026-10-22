@@ -19,8 +19,8 @@ void Check(string what, object expected, object actual)
 	}
 }
 
-Check("config size", Configuration.ByteSizeV6, bytes.Length);
-Check("parse", true, cfg.ParseFromBufferV6(bytes));
+Check("config size", Configuration.ByteSizeV7, bytes.Length);
+Check("parse", true, cfg.ParseFromBufferV7(bytes));
 
 Check("max current", 33u, cfg.MaxCurrentAmps);
 Check("current ramp", 12u, cfg.CurrentRampAmpsSecond);
@@ -44,6 +44,14 @@ Check("gear boost", 50u, cfg.GearBoostMaxPercent);
 Check("gear ratio low", 1.2f, cfg.GearRatioLow);
 Check("gear ratio high", 3.0f, cfg.GearRatioHigh);
 Check("cadence lock", 15u, cfg.CadenceLockMarginRpm);
+
+Check("range field", Configuration.RangeFieldData.RiderPower, cfg.RangeFieldDisplay);
+Check("effort mass", 95u, cfg.EffortMassKg);
+Check("effort stroke", 70u, cfg.EffortStrokePercent);
+Check("effort max speed", 22u, cfg.EffortMaxSpeedKph);
+Check("level 3 effort", 2.0f, l3.EffortAssistFactor);
+Check("sport level 9 effort", 25.5f, cfg.SportAssistLevels[9].EffortAssistFactor);
+Check("standard level 0 effort", 0f, cfg.StandardAssistLevels[0].EffortAssistFactor);
 
 Check("written bytes identical", true, cfg.WriteToBuffer().SequenceEqual(bytes));
 

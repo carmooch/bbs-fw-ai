@@ -81,8 +81,12 @@ The bike model is deliberately simple. Keep these in mind when reading results:
   `bike mass_kg`, `crr`, `cda_m2`, `motor_eff` change them) up the scripted `grade`, and cadence
   follows from speed and gear. Checked against hand calculations: 150 W on the flat settles at
   23.1 km/h, and 200 W up 6% at 9.5 km/h.
+  `bike pedal_stroke <fraction>` makes the rider's push swing by that fraction twice per
+  revolution (a real pedal stroke is about 0.8), which is what effort sensing measures.
 - PAS is modelled as a clean quadrature pair with 50% duty. The real BBSHD signal hasn't been
-  measured yet (roadmap: bench measurements); `bike pas_duty <fraction>` changes the duty.
+  measured yet (roadmap: bench measurements); `bike pas_duty <fraction>` changes the duty and
+  `bike pas_edge_error_deg <deg>` moves each edge by a fixed random error of about that size,
+  like a real sensor's magnets.
 - While pedalling, the wheel turns at cadence × `gear`. Otherwise it coasts down at
   `bike coast_decel` m/s².
 - The battery voltage is an input. With `bike battery_r <ohms>` set, that input is the resting

@@ -49,9 +49,16 @@ deliberate, reviewed change to a baseline.
 
 See [TUNING.md](TUNING.md) for switching the new settings on one at a time.
 
-There's also an experimental idea: inferring effort from the cadence ripple within each pedal
-stroke, or from speed and acceleration. It may or may not work, so it only gets built after
-real ride data shows a usable signal.
+### What 2.1 adds (simulator, not yet ridden)
+
+**Effort sensing** from the cadence sensor alone: the firmware times every PAS edge (96 per
+revolution), learns the sensor's edge pattern while cruising, and estimates rider power from the
+crank-speed wobble within each pedal stroke. In the simulator, with a realistic sensor (edges up
+to ~0.3° off) and a rider learning at 150 W, it reads 100 W as ~97 W and 250 W as ~240 W on a 6%
+climb, and holds steady through gear changes. It's shown live in the display's Range field, and
+can drive a level ("Effort Assist": motor power = N × rider power). Whether the real bike shows
+the wobble cleanly is the open question; [TUNING.md](TUNING.md) has the ride test that settles
+it, and [research/effort](research/effort/README.md) the model behind it.
 
 ## How changes get tested
 
@@ -125,7 +132,8 @@ Fixes:
   it adds a lot of lag, that limits what phase 3 can achieve.
 - [ ] Battery: voltage against current under load, to measure the pack's internal resistance
   for phase 2 and the simulator's battery model
-- [ ] Higher PAS resolution (more edges per revolution), if the PAS measurement allows it
+- [x] Higher PAS resolution: every edge of both PAS channels is timed (96 per revolution), with
+  the sensor's uneven edge spacing learned and stored
 
 **5. Proportional assist** (the headline)
 - [x] Simulator physics: rider power, bike mass, grade, drag, and motor power feeding back into
@@ -173,8 +181,14 @@ heat that's already available.
   from an accelerometer, and location-based speed zones.
 
 **9. Experiments**
-- [ ] Effort inference from cadence ripple within each pedal stroke, or from speed and
-  acceleration, only if recorded ride data shows a usable signal
+- [x] Effort inference from the cadence ripple within each pedal stroke (2.1): live rider watts
+  in the Range field, and Effort Assist per level. Simulator only so far
+- [ ] Ride test of effort sensing ([TUNING.md](TUNING.md)): does the reading follow the rider?
+- [ ] If it does: learn the rider's own share of the learned pattern instead of assuming 100 W,
+  by tracking the stroke's direction and the lowest readings over time (removes the fixed
+  low reading at speed)
+- [ ] If it doesn't: a diagnostic build that streams PAS edge timing to the tool, to see whether
+  the sensor or the motor is hiding the wobble
 
 **Small items, whenever they fit**
 - [ ] Throttle upper deadband: full power before full twist *(old #5)*

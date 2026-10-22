@@ -11,7 +11,7 @@ namespace BBSFW.Model
 	[XmlRoot("BBSFW", Namespace ="https://github.com/danielnilsson9/bbs-fw")]
 	public class Configuration
 	{
-		public const int CurrentVersion = 6;
+		public const int CurrentVersion = 7;
 		public const int MinVersion = 1;
 		public const int MaxVersion = CurrentVersion;
 
@@ -21,6 +21,7 @@ namespace BBSFW.Model
 		public const int ByteSizeV4 = 152;
 		public const int ByteSizeV5 = 154;
 		public const int ByteSizeV6 = 221;
+		public const int ByteSizeV7 = 245;
 
 		public enum Feature
 		{
@@ -46,6 +47,8 @@ namespace BBSFW.Model
 					return ByteSizeV5;
 				case 6:
 					return ByteSizeV6;
+				case 7:
+					return ByteSizeV7;
 			}
 
 			return 0;
@@ -107,6 +110,15 @@ namespace BBSFW.Model
 			BatteryPercent = 3
 		}
 
+		// what the display's Range field shows (version 7)
+		public enum RangeFieldData
+		{
+			Zero = 0,
+			Temperature = 1,
+			Power = 2,
+			RiderPower = 3
+		}
+
 		public enum LightsModeOptions
 		{
 			Default = 0,
@@ -144,6 +156,10 @@ namespace BBSFW.Model
 
 			[XmlAttribute]
 			public uint CurrentRampAmpsSecond;
+
+			// version 7: motor watts per estimated rider watt, 0 = off
+			[XmlAttribute]
+			public float EffortAssistFactor;
 		}
 
 		[XmlIgnore]
@@ -229,6 +245,12 @@ namespace BBSFW.Model
 		public float GearRatioHigh;
 		public uint CadenceLockMarginRpm;
 
+		// version 7: effort sensing from PAS timing
+		public RangeFieldData RangeFieldDisplay;
+		public uint EffortMassKg;
+		public uint EffortStrokePercent;
+		public uint EffortMaxSpeedKph;
+
 		public Configuration() : this(BbsfwConnection.Controller.Unknown)
 		{ }
 
@@ -273,6 +295,12 @@ namespace BBSFW.Model
 
 			AssistModeSelection = AssistModeSelect.Off;
 			AssistStartupLevel = 0;
+
+			// firmware defaults, for settings files saved before version 7
+			RangeFieldDisplay = RangeFieldData.Temperature;
+			EffortMassKg = 110;
+			EffortStrokePercent = 80;
+			EffortMaxSpeedKph = 25;
 
 			for (int i = 0; i < StandardAssistLevels.Length; ++i)
 			{
@@ -720,6 +748,40 @@ namespace BBSFW.Model
 			return true;
 		}
 
+		public bool ParseFromBufferV7(byte[] buffer)
+		{
+			if (buffer.Length != ByteSizeV7)
+			{
+				return false;
+			}
+
+			// version 7 appends to the version 6 layout
+			if (!ParseFromBufferV6(buffer.Take(ByteSizeV6).ToArray()))
+			{
+				return false;
+			}
+
+			using (var s = new MemoryStream(buffer, ByteSizeV6, ByteSizeV7 - ByteSizeV6))
+			{
+				var br = new BinaryReader(s);
+
+				RangeFieldDisplay = (RangeFieldData)br.ReadByte();
+				EffortMassKg = br.ReadByte();
+				EffortStrokePercent = br.ReadByte();
+				EffortMaxSpeedKph = br.ReadByte();
+
+				foreach (var levels in new[] { StandardAssistLevels, SportAssistLevels })
+				{
+					for (int i = 0; i < levels.Length; ++i)
+					{
+						levels[i].EffortAssistFactor = br.ReadByte() / 10f;
+					}
+				}
+			}
+
+			return true;
+		}
+
 		public byte[] WriteToBuffer()
 		{
 			using (var s = new MemoryStream())
@@ -803,6 +865,20 @@ namespace BBSFW.Model
 					}
 				}
 
+				// version 7
+				bw.Write((byte)RangeFieldDisplay);
+				bw.Write((byte)EffortMassKg);
+				bw.Write((byte)EffortStrokePercent);
+				bw.Write((byte)EffortMaxSpeedKph);
+
+				foreach (var levels in new[] { StandardAssistLevels, SportAssistLevels })
+				{
+					for (int i = 0; i < levels.Length; ++i)
+					{
+						bw.Write((byte)Math.Round(levels[i].EffortAssistFactor * 10));
+					}
+				}
+
 				return s.ToArray();
 			}
 		}
@@ -849,6 +925,11 @@ namespace BBSFW.Model
 			GearRatioHigh = cfg.GearRatioHigh;
 			CadenceLockMarginRpm = cfg.CadenceLockMarginRpm;
 
+			RangeFieldDisplay = cfg.RangeFieldDisplay;
+			EffortMassKg = cfg.EffortMassKg;
+			EffortStrokePercent = cfg.EffortStrokePercent;
+			EffortMaxSpeedKph = cfg.EffortMaxSpeedKph;
+
 			for (int i = 0; i < Math.Min(cfg.StandardAssistLevels.Length, StandardAssistLevels.Length); ++i)
 			{
 				StandardAssistLevels[i].Type = cfg.StandardAssistLevels[i].Type;
@@ -860,6 +941,7 @@ namespace BBSFW.Model
 				StandardAssistLevels[i].PowerStartWatts = cfg.StandardAssistLevels[i].PowerStartWatts;
 				StandardAssistLevels[i].PowerWattsPerRpm = cfg.StandardAssistLevels[i].PowerWattsPerRpm;
 				StandardAssistLevels[i].CurrentRampAmpsSecond = cfg.StandardAssistLevels[i].CurrentRampAmpsSecond;
+				StandardAssistLevels[i].EffortAssistFactor = cfg.StandardAssistLevels[i].EffortAssistFactor;
 			}
 
 			for (int i = 0; i < Math.Min(cfg.SportAssistLevels.Length, SportAssistLevels.Length); ++i)
@@ -873,6 +955,7 @@ namespace BBSFW.Model
 				SportAssistLevels[i].PowerStartWatts = cfg.SportAssistLevels[i].PowerStartWatts;
 				SportAssistLevels[i].PowerWattsPerRpm = cfg.SportAssistLevels[i].PowerWattsPerRpm;
 				SportAssistLevels[i].CurrentRampAmpsSecond = cfg.SportAssistLevels[i].CurrentRampAmpsSecond;
+				SportAssistLevels[i].EffortAssistFactor = cfg.SportAssistLevels[i].EffortAssistFactor;
 			}
 		}
 
@@ -935,6 +1018,11 @@ namespace BBSFW.Model
 			}
 			ValidateLimits(CadenceLockMarginRpm, 0, 100, "Cadence Lock Margin (rpm)");
 
+			ValidateLimits((uint)RangeFieldDisplay, 0, 3, "Range Field Shows");
+			ValidateLimits(EffortMassKg, 30, 255, "Effort Sensing Bike + Rider Mass (kg)");
+			ValidateLimits(EffortStrokePercent, 10, 200, "Effort Sensing Pedal Stroke (%)");
+			ValidateLimits(EffortMaxSpeedKph, 5, 60, "Effort Assist Max Speed (km/h)");
+
 			foreach (var (levels, name) in new[] { (StandardAssistLevels, "Standard"), (SportAssistLevels, "Sport") })
 			{
 				for (int i = 0; i < levels.Length; ++i)
@@ -942,6 +1030,7 @@ namespace BBSFW.Model
 					ValidateLimits(levels[i].PowerStartWatts, 0, 2550, $"{name} (Level {i}): Power Start (W)");
 					ValidateLimits((uint)Math.Round(levels[i].PowerWattsPerRpm * 10), 0, 255, $"{name} (Level {i}): Power per rpm (W/rpm x10)");
 					ValidateLimits(levels[i].CurrentRampAmpsSecond, 0, 255, $"{name} (Level {i}): Current Ramp (A/s)");
+					ValidateLimits((uint)Math.Round(levels[i].EffortAssistFactor * 10), 0, 255, $"{name} (Level {i}): Effort Assist (x10)");
 				}
 			}
 

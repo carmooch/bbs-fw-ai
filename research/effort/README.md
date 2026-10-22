@@ -60,3 +60,22 @@ Road noise up to 20 N and the effort wander made no material difference.
 
 The firmware shows its estimate live in the display's Range field. That's the experiment that
 settles these: ride, push harder, and see whether the number follows.
+
+## What the firmware added (`src/firmware/effort.c`)
+
+Running the estimator inside the ride simulator, with motor power feeding back into the bike,
+showed three things the steady-state model above didn't:
+
+1. **Speeding up leaks into the harmonic.** A speed trend across the one-revolution window looks
+   like wobble: a 150 W rider read as 700-1100 W while the motor ramped up, a runaway. The trend
+   is measured from the window's speed sum half a revolution apart and its exact leak (it depends
+   only on where the window starts) is subtracted.
+2. **Gear changes and hard launches aren't linear trends.** When the speed moves more than 5% in
+   half a revolution, or 2.5% in a quarter, the last estimate is held.
+3. **The rider's own wobble while learning ends up in the pattern.** It's locked to the crank
+   just like the magnet errors, so it's subtracted from every later reading: about the learning
+   power × (v²ω now ÷ v²ω while learning). The firmware stores v²ω with the pattern and adds back
+   an assumed 100 W. Reading this properly from the data is the next step if the ride test works.
+
+With those, the simulator's learn-then-climb scenario (`host/sim/scenarios/effort_assist.sim`)
+reads 100 W as ~97 W and 250 W as ~240 W.

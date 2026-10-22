@@ -21,6 +21,7 @@ typedef struct
 	double edge_deg[EDGES];	// where each edge sits on the crank
 	double phi_deg;			// crank angle
 	int next_edge;
+	bool throttle;			// app.c reports the throttle held every 5ms
 	double t;
 	long last_tick;
 	uint32_t now_ms;
@@ -48,6 +49,7 @@ static void crank_init(crank_t* c, unsigned seed, double start_deg)
 	c->t = 0;
 	c->last_tick = -1;
 	c->now_ms = 0;
+	c->throttle = false;
 }
 
 // pin states after edge k: PAS1 rise, PAS2 rise, PAS1 fall, PAS2 fall
@@ -112,6 +114,7 @@ static uint16_t ride_ramp(crank_t* c, double revs, double cadence_from, double c
 			c->now_ms = ms;
 			g_hw.now_ms = 1000 + ms;
 			effort_process();
+			effort_set_motor_driven(c->throttle);
 		}
 	}
 
@@ -282,6 +285,49 @@ static int test_effort_holds_through_a_gear_change(void)
 	return 1;
 }
 
+static int test_effort_pauses_while_the_throttle_drives(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 8, 0);
+
+	// no learning while the throttle could be spinning the chainring
+	c.throttle = true;
+	ride(&c, 100, 80, 3.0, 150, -1);
+	ASSERT_EQ(0, effort_get_learned_percent());
+
+	c.throttle = false;
+	learn(&c);
+	ride(&c, 10, 60, 1.2, 200, -1);
+	ASSERT_TRUE(effort_is_valid());
+
+	// no estimate as soon as the throttle is used...
+	c.throttle = true;
+	ride(&c, 0.05, 60, 1.2, 200, -1);
+	ASSERT_TRUE(!effort_is_valid());
+	ASSERT_EQ(0, effort_get_rider_power_w());
+
+	// effort assist keeps the last estimate through a short blip (2 s)...
+	uint16_t held = 0;
+	ride(&c, 2, 60, 1.2, 200, -1);
+	ASSERT_TRUE(effort_get_assist_power_w(&held));
+	ASSERT_TRUE(held >= 170 && held <= 230);
+
+	// ...but not through a long one (6 s)
+	ride(&c, 4, 60, 1.2, 200, -1);
+	ASSERT_TRUE(!effort_is_valid());
+	ASSERT_TRUE(!effort_get_assist_power_w(&held));
+
+	// ...and back within two revolutions of letting go
+	c.throttle = false;
+	uint16_t p = ride(&c, 2, 60, 1.2, 200, -1);
+	printf("  after the throttle: 200 W -> %u\n", p);
+	ASSERT_TRUE(effort_is_valid());
+	ASSERT_TRUE(p >= 170 && p <= 230);
+
+	return 1;
+}
+
 void test_effort_run(void)
 {
 	RUN_TEST(test_effort_learns_while_cruising);
@@ -291,4 +337,5 @@ void test_effort_run(void)
 	RUN_TEST(test_effort_recovers_from_a_missed_edge);
 	RUN_TEST(test_effort_tracks_rider_power_while_speeding_up);
 	RUN_TEST(test_effort_holds_through_a_gear_change);
+	RUN_TEST(test_effort_pauses_while_the_throttle_drives);
 }

@@ -59,6 +59,11 @@ typedef char effort_edges_check[(N == 96) ? 1 : -1];
 
 typedef char learn_revs_check[(LEARN_REVS % 100 == 0) ? 1 : -1];
 
+// Effort assist keeps the last estimate through gaps this short (throttle
+// blips, gear changes, the first turn after slowing), rather than falling
+// back to the level's fixed current.
+#define ASSIST_HOLD_MS				5000
+
 // Estimates are only trusted in this range.
 #define VALID_MIN_CADENCE_RPM		25
 #define VALID_MIN_SPEED_KPH			2
@@ -131,6 +136,8 @@ static uint16_t wheel_rpm_x10;
 static uint16_t rider_power_w;
 static uint16_t rider_torque_nm_x10;
 static bool valid;
+static uint16_t held_power_w;		// last valid estimate, for effort assist
+static uint32_t held_at_ms;
 static int32_t cos_sum;
 static int32_t sin_sum;
 
@@ -166,6 +173,7 @@ void effort_init() __reentrant
 	wheel_rpm_x10 = 0;
 	save_pending = false;
 	revs_since_save = 0;
+	held_at_ms = 0;
 
 	// the trig tables are rounded, so their sums aren't exactly 0: keep them
 	// so the mean can be taken out exactly (see estimate())
@@ -192,6 +200,15 @@ void effort_init() __reentrant
 
 	aligning = false;
 	reset_window();
+}
+
+void effort_set_motor_driven(bool driven)
+{
+	if (driven)
+	{
+		// called every app tick: the window never fills while driven
+		reset_window();
+	}
 }
 
 void effort_set_wheel_rpm_x10(uint16_t rpm_x10)
@@ -413,6 +430,8 @@ static void estimate() __reentrant
 	rider_power_w = valid ? (uint16_t)((rider_power_w + p) / 2) : p;
 	rider_torque_nm_x10 = (uint16_t)(rider_power_w * 10.0f / (cadence * (3.14159f / 300.0f)));
 	valid = true;
+	held_power_w = rider_power_w;
+	held_at_ms = system_ms();
 }
 
 // Returns true when an estimate is due (every quarter revolution).
@@ -576,6 +595,21 @@ bool effort_is_valid()
 uint16_t effort_get_rider_power_w()
 {
 	return valid ? rider_power_w : 0;
+}
+
+bool effort_get_assist_power_w(uint16_t* power_w)
+{
+	if (valid)
+	{
+		*power_w = rider_power_w;
+		return true;
+	}
+	if (held_at_ms != 0 && system_ms() - held_at_ms < ASSIST_HOLD_MS)
+	{
+		*power_w = held_power_w;
+		return true;
+	}
+	return false;
 }
 
 uint16_t effort_get_rider_torque_nm_x10()

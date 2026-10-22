@@ -34,6 +34,11 @@ at 200000 rider_w 100
 at 220000 rider_w 250
 at 220000 gear 2.0
 
+# a quick blip of throttle while pedalling: the motor could spin the
+# chainring ahead of the feet, so effort sensing pauses until it's released
+at 230000 throttle 30
+at 232000 throttle 0
+
 end 240000
 
 # learning: ~1.35 revolutions/s, 200 revolutions
@@ -47,6 +52,7 @@ expect 189000 fw_rider_w == 0
 # pattern was learned and the firmware assumes 100 W (LEARN_ASSUMED_RIDER_W).
 expect 219000 fw_rider_w >= 70
 expect 219000 fw_rider_w <= 115
+expect 231000 fw_rider_w == 0
 expect 239000 fw_rider_w >= 190
 expect 239000 fw_rider_w <= 275
 # motor = 2x estimate, from 52 V at 30 A max (1560 W)

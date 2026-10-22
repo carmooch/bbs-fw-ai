@@ -88,6 +88,12 @@ Things to know:
 - Gear changes and hard launches hold the last reading for about half a revolution.
 - Above Effort Max Speed (default 25 km/h) there's no reading: the wobble is too small to
   measure there.
+- **Throttle (and cruise):** while the throttle is open, the motor can spin the chainring faster
+  than your feet, so the cranks tell nothing about effort. The reading shows 0 and learning
+  pauses until you let go and pedal on for a turn or so. Effort assist keeps your last estimate
+  for up to 5 s, so a throttle blip doesn't drop it back to the level's fixed current; the
+  throttle still wins whenever it asks for more. Don't use the throttle while the pattern is
+  learning (step 2): it just won't count.
 
 ## Undoing a change
 

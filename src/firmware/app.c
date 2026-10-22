@@ -183,6 +183,11 @@ void app_process()
 	}
 	else
 	{
+		// throttle or cruise can drive the chainring ahead of the feet: pause
+		// effort sensing first, so effort assist never overrides a light throttle
+		effort_set_motor_driven(throttle_percent > 0 ||
+			((assist_level_data.level.flags & ASSIST_FLAG_CRUISE) && !cruise_paused));
+
 		apply_pretension(&target_current);
 		apply_pas_cadence(&target_current, throttle_percent);
 #if HAS_TORQUE_SENSOR
@@ -440,6 +445,8 @@ void apply_pretension(uint8_t* target_current)
 
 void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent)
 {
+	uint16_t rider_w;
+
 	if ((assist_level_data.level.flags & ASSIST_FLAG_PAS) && !(assist_level_data.level.flags & ASSIST_FLAG_PAS_TORQUE))
 	{
 		// a shorter start delay when already rolling (never a longer one)
@@ -459,11 +466,10 @@ void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent)
 					*target_current = current;
 				}
 			}
-			else if (assist_level_data.effort_x10 > 0 && effort_is_valid())
+			else if (assist_level_data.effort_x10 > 0 && effort_get_assist_power_w(&rider_w))
 			{
 				// effort assist: motor power follows the rider's estimated power
-				uint8_t current = power_to_level_current(
-					(uint32_t)effort_get_rider_power_w() * assist_level_data.effort_x10);
+				uint8_t current = power_to_level_current((uint32_t)rider_w * assist_level_data.effort_x10);
 				if (current > *target_current)
 				{
 					*target_current = current;

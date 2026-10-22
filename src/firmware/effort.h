@@ -30,6 +30,12 @@ void effort_add_edge(uint16_t entry);
 // reads them, tests set them here.
 void effort_set_wheel_rpm_x10(uint16_t rpm_x10);
 
+// Tells effort sensing whether the throttle or cruise is driving the motor.
+// Then the motor can turn the chainring faster than the rider's feet and the
+// cranks freewheel, so their speed no longer says anything about the bike:
+// no estimate and no learning while set, and a fresh start after.
+void effort_set_motor_driven(bool driven);
+
 // True while the estimate can be trusted: magnet pattern learned and
 // aligned, pedalling forwards steadily, below effort_max_speed_kph.
 bool effort_is_valid();
@@ -37,6 +43,10 @@ bool effort_is_valid();
 // Estimated rider power (W) and torque (Nm x10); 0 when not valid.
 uint16_t effort_get_rider_power_w();
 uint16_t effort_get_rider_torque_nm_x10();
+
+// Rider power for effort assist: the estimate while valid, else the last one
+// for up to 5 s after it stopped being valid. False when there's neither.
+bool effort_get_assist_power_w(uint16_t* power_w);
 
 // Magnet pattern learning progress, 0-100 (100 = learned).
 uint8_t effort_get_learned_percent();

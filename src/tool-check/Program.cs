@@ -6,6 +6,11 @@ using System.IO;
 using System.Linq;
 using BBSFW.Model;
 
+if (args.Length > 0 && args[0] == "e2e")
+{
+	return await E2E.Run(args[1..]);
+}
+
 var bytes = File.ReadAllBytes(args[0]);
 var cfg = new Configuration(BbsfwConnection.Controller.BBSHD);
 var failures = 0;

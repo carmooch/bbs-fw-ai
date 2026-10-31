@@ -242,7 +242,10 @@ typedef struct
 	// PAS edges in crank degrees: PAS1 rise, PAS2 rise, PAS1 fall, PAS2 fall
 	// for each pulse
 	double pas_edge_error_deg;
+	double pas_edge_jitter_deg;		// random, new every revolution (a noisy sensor)
 	double pas_edge_deg[PAS_PULSES_REVOLUTION * 4];
+	double pas_edge_jitter[PAS_PULSES_REVOLUTION * 4];
+	double last_crank_deg;
 
 	double wheel_circumference_m;
 	int speed_magnets;
@@ -274,6 +277,8 @@ static bool apply_bike_param(const scenario_t* s, const bike_param_t* p)
 		bike.pedal_stroke = p->value;
 	else if (strcmp(p->param, "pas_edge_error_deg") == 0 && p->value >= 0 && p->value <= 0.5)
 		bike.pas_edge_error_deg = p->value;
+	else if (strcmp(p->param, "pas_edge_jitter_deg") == 0 && p->value >= 0 && p->value <= 0.5)
+		bike.pas_edge_jitter_deg = p->value;
 	else
 	{
 		fprintf(stderr, "%s:%d: unknown or out-of-range bike parameter '%s'\n", s->path, p->line, p->param);
@@ -322,7 +327,8 @@ static bool pas_pin_high(double deg, int rise, int fall)
 		// j = -1 and j = PAS_PULSES_REVOLUTION are pulses across 0 degrees
 		int pulse = (j + PAS_PULSES_REVOLUTION) % PAS_PULSES_REVOLUTION;
 		double wrap = (j - pulse) / PAS_PULSES_REVOLUTION * 360.0;
-		if (deg >= bike.pas_edge_deg[pulse * 4 + rise] + wrap && deg < bike.pas_edge_deg[pulse * 4 + fall] + wrap)
+		if (deg >= bike.pas_edge_deg[pulse * 4 + rise] + bike.pas_edge_jitter[pulse * 4 + rise] + wrap &&
+			deg < bike.pas_edge_deg[pulse * 4 + fall] + bike.pas_edge_jitter[pulse * 4 + fall] + wrap)
 		{
 			return true;
 		}
@@ -407,6 +413,26 @@ static void bike_step(double dt_s)
 	// PAS quadrature: forwards, PAS2 reads low on PAS1's rising edge, which is
 	// what sensors.c takes as "not backwards".
 	double crank_deg = frac(bike.crank_revs) * 360.0;
+
+	// a noisy sensor: every edge moves a little, differently each revolution;
+	// an edge gets its new position while the crank is half a turn away
+	if (bike.pas_edge_jitter_deg > 0)
+	{
+		for (int k = 0; k < PAS_PULSES_REVOLUTION * 4; ++k)
+		{
+			double opposite = fmod(bike.pas_edge_deg[k] + 180.0 + 360.0, 360.0);
+			bool passed = bike.last_crank_deg <= crank_deg
+				? (opposite > bike.last_crank_deg && opposite <= crank_deg)
+				: (opposite > bike.last_crank_deg || opposite <= crank_deg);
+			if (passed && crank_deg != bike.last_crank_deg)
+			{
+				double u = (rand() + 1.0) / (RAND_MAX + 2.0), w = (rand() + 1.0) / (RAND_MAX + 2.0);
+				double j = bike.pas_edge_jitter_deg * sqrt(-2 * log(u)) * cos(2 * PI * w);
+				bike.pas_edge_jitter[k] = j > 0.5 ? 0.5 : (j < -0.5 ? -0.5 : j);
+			}
+		}
+	}
+	bike.last_crank_deg = crank_deg;
 	PIN_PAS1 = pas_pin_high(crank_deg, 0, 2);
 	PIN_PAS2 = pas_pin_high(crank_deg, 1, 3);
 

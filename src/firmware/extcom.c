@@ -440,8 +440,8 @@ static int16_t process_read_config()
 }
 
 // Everything the display shows, plus live data it doesn't, for the config
-// tool's Bench page. Polling it also stops effort learning while the bike is
-// on a stand (see effort_block_learning()).
+// tool's Bench page. It also stops effort learning until power-off, since the
+// bike is on a stand (see effort_block_learning()).
 static int16_t process_read_status() __reentrant
 {
 	if (msg_len < 3)
@@ -516,6 +516,7 @@ static int16_t process_read_pas_capture() __reentrant
 	if (compute_checksum(msgbuf, 4) == msgbuf[4])
 	{
 		uint16_t first = ((uint16_t)msgbuf[2] << 8) | msgbuf[3];
+		effort_block_learning();
 		uint16_t edges[CAPTURE_EDGES_PER_READ];
 		uint16_t count;
 		uint8_t state = effort_read_capture(first, edges, CAPTURE_EDGES_PER_READ, &count);
@@ -672,6 +673,7 @@ static int16_t process_write_start_pas_capture()
 	if (compute_checksum(msgbuf, 2) == msgbuf[2])
 	{
 		effort_start_capture();
+		effort_block_learning();
 
 		uint8_t checksum = 0;
 		write_uart_and_increment_checksum(REQUEST_TYPE_WRITE, &checksum);

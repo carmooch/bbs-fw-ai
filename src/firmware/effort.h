@@ -53,9 +53,10 @@ uint8_t effort_get_learned_percent();
 
 // --- bench testing (config tool's Bench page) ---
 
-// No learning for the next few seconds: on a stand, with no bike to push,
-// the cranks wobble far more than on the road and would spoil the pattern.
-// The tool calls this through every status read.
+// No learning until the controller is switched off: on a stand, with no
+// bike to push, the cranks wobble far more than on the road and would spoil
+// the pattern. The config tool's Bench page triggers this (status reads and
+// PAS captures).
 void effort_block_learning();
 
 // Forgets the learned pattern (in EEPROM too); learning starts over.

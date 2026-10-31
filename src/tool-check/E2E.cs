@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BBSFW.Model;
+using BBSFW.ViewModel;
 
 // The virtual controller's pseudo-terminal as a port. (.NET's SerialPort
 // can't open one: it sets DTR with an ioctl ptys don't support.)
@@ -120,6 +121,8 @@ static class E2E
 		await FlashWizard();
 		await StcgalParser();
 		await RealStcgal();
+		await BenchPage();
+		await WizardPage();
 
 		Console.WriteLine(failures == 0 ? "End-to-end checks passed." : $"{failures} end-to-end check(s) failed.");
 		return failures == 0 ? 0 : 1;
@@ -297,6 +300,115 @@ static class E2E
 		Check("wizard: restore", await update.RestoreBackup(TimeSpan.FromSeconds(5)));
 		verify = await update.Verify(TimeSpan.FromSeconds(5));
 		Check("wizard: restored", verify.SettingsKept, verify.Message);
+	}
+
+	class ScriptedPrompts : IUserPrompts
+	{
+		public bool ConfirmAnswer = true;
+		public string SavePath;
+		public List<string> Seen = new List<string>();
+		public bool Confirm(string message, string title) { Seen.Add(message); return ConfirmAnswer; }
+		public void Inform(string message, string title) { Seen.Add(message); }
+		public string AskSavePath(string title, string filter, string fileName) => SavePath;
+	}
+
+	// The Bench page's view model, as the page drives it.
+	static async Task BenchPage()
+	{
+		using var vc = VirtualController.Start("bench.sim");
+		var conn = new BbsfwConnection();
+		await conn.Connect(new ComPort(vc.Port, vc.Port), TimeSpan.FromSeconds(5));
+		var prompts = new ScriptedPrompts();
+		var bench = new BenchViewModel(null, prompts, () => conn) { PollInterval = TimeSpan.FromMilliseconds(200) };
+
+		var running = bench.Start();
+		await Task.Delay(4000);
+		Check("bench page: running", bench.IsRunning, bench.Message);
+		Check("bench page: speed shown", bench.SpeedKph > 10, bench.SpeedKph.ToString("0.0"));
+		Check("bench page: range field shown", bench.RangeText != "-", bench.RangeText);
+
+		bench.SetLevel(2);
+		await Task.Delay(800);
+		Check("bench page: level buttons", bench.LevelText == "2", bench.LevelText);
+
+		var csv = Path.Combine(Path.GetTempPath(), "bbs-fw-e2e-bench.csv");
+		bench.StartRecording(csv);
+		await Task.Delay(1500);
+		bench.StopRecording();
+		var lines = File.ReadAllLines(csv);
+		Check("bench page: recording", lines.Length >= 4 && lines[0] == ControllerStatus.CsvHeader, lines.Length.ToString());
+
+		await bench.CheckSensor();
+		Check("bench page: sensor check", bench.LastAnalysis != null && bench.LastAnalysis.Usable, bench.SensorReport);
+		await Task.Delay(600);	// polling resumes after the capture
+		Check("bench page: assist off for the check", bench.Status.AssistLevel == 0, bench.LevelText);
+
+		prompts.ConfirmAnswer = false;
+		Check("bench page: reset asks first", !await bench.ResetPattern() && prompts.Seen.Count == 1);
+		prompts.ConfirmAnswer = true;
+		Check("bench page: reset", await bench.ResetPattern(), bench.Message);
+
+		bench.Stop();
+		await running;
+		Check("bench page: stopped", !bench.IsRunning);
+		conn.Close();
+	}
+
+	// The wizard's view model, clicking Next as the rider would.
+	static async Task WizardPage()
+	{
+		using var vc = VirtualController.Start("bench.sim");
+		var port = new ComPort(vc.Port, vc.Port);
+		var prompts = new ScriptedPrompts();
+		var wizard = new FlashWizardViewModel(null, prompts, () => FakePackage(new Version(2, 2, 0)))
+		{
+			BackupDirectory = Path.Combine(Path.GetTempPath(), "bbs-fw-e2e-backups"),
+			ConnectTimeout = TimeSpan.FromSeconds(5),
+			SelectedComPort = port,
+		};
+
+		var titles = new List<string>();
+		int powerPrompts = 0;
+		wizard.PropertyChanged += (s, e) =>
+		{
+			if (e.PropertyName == nameof(wizard.Title)) titles.Add(wizard.Title);
+			if (e.PropertyName == nameof(wizard.IsWaitingForPower) && wizard.IsWaitingForPower) powerPrompts++;
+		};
+
+		var run = wizard.Run();
+		for (int i = 0; i < 40 && wizard.IsRunning; ++i)
+		{
+			await Task.Delay(250);
+			if (wizard.CanNext)
+			{
+				wizard.NextCommand.Execute(null);
+			}
+		}
+		await run;
+
+		Check("wizard page: finished", wizard.Succeeded, wizard.Title + ": " + wizard.Instruction);
+		Check("wizard page: steps in order", titles.Contains("Step 1 of 4: back up your settings") && titles.Contains("Step 2 of 4: check the controller") &&
+			titles.Contains("Step 3 of 4: flash the firmware") && titles.Contains("Step 4 of 4: check it worked") && titles.Last() == "Done",
+			string.Join(" | ", titles.Distinct()));
+		Check("wizard page: asked to switch on twice", powerPrompts == 2, powerPrompts.ToString());
+		Check("wizard page: log", wizard.Log.Contains("Disconnected!") && wizard.Log.Contains("STC15W4K56S4"));
+
+		// an unsupported chip stops it before flashing
+		Environment.SetEnvironmentVariable("FAKE_STCGAL_CHIP", "STC12C5A60S2");
+		titles.Clear();
+		run = wizard.Run();
+		for (int i = 0; i < 40 && wizard.IsRunning; ++i)
+		{
+			await Task.Delay(250);
+			if (wizard.CanNext)
+			{
+				wizard.NextCommand.Execute(null);
+			}
+		}
+		await run;
+		Environment.SetEnvironmentVariable("FAKE_STCGAL_CHIP", null);
+		Check("wizard page: unsupported chip stops it", !wizard.Succeeded && wizard.Title == "Stopped: unsupported controller" &&
+			!titles.Contains("Step 3 of 4: flash the firmware"), wizard.Title);
 	}
 
 	// The real stcgal, through the entry script the bundled stcgal.exe is built

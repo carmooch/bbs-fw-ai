@@ -345,12 +345,16 @@ static int test_effort_no_learning_on_the_bench(void)
 	ride(&c, 60, 80, 3.0, 150, -1);
 	ASSERT_EQ(0, effort_get_learned_percent());
 
-	// it stops: learning resumes once 5 s have passed
+	// the tool stops polling: still nothing until the controller is
+	// switched off, since the bike may still be on the stand
 	c.bench = false;
-	ride(&c, 4, 80, 3.0, 150, -1);
-	ASSERT_EQ(0, effort_get_learned_percent());
 	ride(&c, 60, 80, 3.0, 150, -1);
-	ASSERT_TRUE(effort_get_learned_percent() > 20);
+	ASSERT_EQ(0, effort_get_learned_percent());
+
+	// ... and resetting the pattern doesn't lift it either
+	ASSERT_TRUE(effort_reset_pattern());
+	ride(&c, 60, 80, 3.0, 150, -1);
+	ASSERT_EQ(0, effort_get_learned_percent());
 
 	return 1;
 }

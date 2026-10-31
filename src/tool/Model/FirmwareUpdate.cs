@@ -141,7 +141,7 @@ namespace BBSFW.Model
 				Supported = true,
 				Result = r,
 				Message = $"{r.McuName}: a supported BBSHD controller." +
-					(r.EepromEraseEnabled == true ? " This chip is set to erase its stored data when flashed, so your settings will be restored from the backup afterwards." : "")
+					(r.EepromEraseEnabled == true ? " This chip erases its stored settings when flashed; they'll be restored from the backup afterwards." : "")
 			};
 		}
 

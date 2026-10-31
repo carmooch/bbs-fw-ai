@@ -1,0 +1,167 @@
+<UserControl x:Class="BBSFW.View.BenchView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+	mc:Ignorable="d"
+	d:DesignHeight="500" d:DesignWidth="800">
+
+	<UserControl.Resources>
+		<BooleanToVisibilityConverter x:Key="BoolToVis" />
+		<Style x:Key="Label" TargetType="{x:Type TextBlock}">
+			<Setter Property="Foreground" Value="#FF555555" />
+			<Setter Property="Margin" Value="0 2 10 2" />
+		</Style>
+		<Style x:Key="Value" TargetType="{x:Type TextBlock}">
+			<Setter Property="FontWeight" Value="Bold" />
+			<Setter Property="Margin" Value="0 2 0 2" />
+			<Setter Property="HorizontalAlignment" Value="Right" />
+		</Style>
+		<Style x:Key="LevelButton" TargetType="{x:Type Button}">
+			<Setter Property="Width" Value="34" />
+			<Setter Property="Height" Value="28" />
+			<Setter Property="Margin" Value="0 0 4 4" />
+		</Style>
+	</UserControl.Resources>
+
+	<Grid>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
+			<RowDefinition />
+		</Grid.RowDefinitions>
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="260" />
+			<ColumnDefinition Width="20" />
+			<ColumnDefinition Width="230" />
+			<ColumnDefinition Width="20" />
+			<ColumnDefinition />
+		</Grid.ColumnDefinitions>
+
+		<!-- top bar -->
+		<StackPanel Grid.Row="0" Grid.ColumnSpan="5" Orientation="Horizontal">
+			<Button Content="Start" Width="90" Height="24" Command="{Binding StartCommand}"
+				Visibility="{Binding IsStopped, Converter={StaticResource BoolToVis}}" />
+			<Button Content="Stop" Width="90" Height="24" Command="{Binding StopCommand}"
+				Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}" />
+			<Button Content="{Binding RecordLabel}" Width="130" Height="24" Margin="10 0 0 0" Command="{Binding RecordCommand}"
+				IsEnabled="{Binding IsRunning}" />
+			<TextBlock Text="{Binding Message}" Margin="12 0 0 0" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="520" />
+		</StackPanel>
+
+		<!-- display -->
+		<GroupBox Grid.Row="1" Grid.Column="0" Header="Display" Margin="0 10 0 0" Padding="8" IsEnabled="{Binding IsRunning}">
+			<StackPanel>
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition />
+						<ColumnDefinition Width="Auto" />
+					</Grid.ColumnDefinitions>
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+					</Grid.RowDefinitions>
+					<TextBlock Grid.Row="0" Style="{StaticResource Label}" Text="Speed (km/h)" />
+					<TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource Value}" FontSize="22" Text="{Binding SpeedKph, StringFormat=0.0}" />
+					<TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="Assist level" />
+					<TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Value}" FontSize="22" Text="{Binding LevelText}" />
+					<TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="Battery" />
+					<TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.BatteryPercent, StringFormat={}{0} %}" />
+					<TextBlock Grid.Row="3" Style="{StaticResource Label}" Text="Current" />
+					<TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.BatteryAmps, StringFormat={}{0:0.0} A}" />
+					<TextBlock Grid.Row="4" Style="{StaticResource Label}" Text="Range field" />
+					<TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding RangeText}" TextWrapping="Wrap" MaxWidth="150" />
+					<TextBlock Grid.Row="5" Style="{StaticResource Label}" Text="Lights" />
+					<TextBlock Grid.Row="5" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.Lights}" />
+				</Grid>
+
+				<TextBlock Text="Assist level" FontWeight="Bold" Margin="0 10 0 4" />
+				<WrapPanel>
+					<Button Style="{StaticResource LevelButton}" Content="0" Command="{Binding SetLevelCommand}" CommandParameter="0" />
+					<Button Style="{StaticResource LevelButton}" Content="1" Command="{Binding SetLevelCommand}" CommandParameter="1" />
+					<Button Style="{StaticResource LevelButton}" Content="2" Command="{Binding SetLevelCommand}" CommandParameter="2" />
+					<Button Style="{StaticResource LevelButton}" Content="3" Command="{Binding SetLevelCommand}" CommandParameter="3" />
+					<Button Style="{StaticResource LevelButton}" Content="4" Command="{Binding SetLevelCommand}" CommandParameter="4" />
+					<Button Style="{StaticResource LevelButton}" Content="5" Command="{Binding SetLevelCommand}" CommandParameter="5" />
+					<Button Style="{StaticResource LevelButton}" Content="6" Command="{Binding SetLevelCommand}" CommandParameter="6" />
+					<Button Style="{StaticResource LevelButton}" Content="7" Command="{Binding SetLevelCommand}" CommandParameter="7" />
+					<Button Style="{StaticResource LevelButton}" Content="8" Command="{Binding SetLevelCommand}" CommandParameter="8" />
+					<Button Style="{StaticResource LevelButton}" Content="9" Command="{Binding SetLevelCommand}" CommandParameter="9" />
+					<Button Style="{StaticResource LevelButton}" Width="50" Content="Walk" Command="{Binding SetLevelCommand}" CommandParameter="10" />
+				</WrapPanel>
+				<Button Content="Lights on/off" Width="110" Height="24" HorizontalAlignment="Left" Margin="0 4 0 0" Command="{Binding ToggleLightsCommand}" />
+			</StackPanel>
+		</GroupBox>
+
+		<!-- live data -->
+		<GroupBox Grid.Row="1" Grid.Column="2" Header="Live data" Margin="0 10 0 0" Padding="8" IsEnabled="{Binding IsRunning}">
+			<Grid>
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition />
+					<ColumnDefinition Width="Auto" />
+				</Grid.ColumnDefinitions>
+				<Grid.RowDefinitions>
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
+				</Grid.RowDefinitions>
+				<TextBlock Grid.Row="0" Style="{StaticResource Label}" Text="Cadence (rpm)" />
+				<TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.CadenceRpm, StringFormat=0.0}" />
+				<TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="Pedalling forwards" />
+				<TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.PedalingForwards}" />
+				<TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="Wheel (rpm)" />
+				<TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.WheelRpm, StringFormat=0.0}" />
+				<TextBlock Grid.Row="3" Style="{StaticResource Label}" Text="Motor current asked (%)" />
+				<TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.TargetCurrentPercent}" />
+				<TextBlock Grid.Row="4" Style="{StaticResource Label}" Text="Motor speed cap (%)" />
+				<TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.TargetSpeedPercent}" />
+				<TextBlock Grid.Row="5" Style="{StaticResource Label}" Text="Battery (V)" />
+				<TextBlock Grid.Row="5" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.BatteryVolts, StringFormat=0.0}" />
+				<TextBlock Grid.Row="6" Style="{StaticResource Label}" Text="Throttle (%)" />
+				<TextBlock Grid.Row="6" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.ThrottlePercent}" />
+				<TextBlock Grid.Row="7" Style="{StaticResource Label}" Text="Brake" />
+				<TextBlock Grid.Row="7" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.Brake}" />
+				<TextBlock Grid.Row="8" Style="{StaticResource Label}" Text="Temperature (C)" />
+				<TextBlock Grid.Row="8" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.TemperatureC}" />
+				<TextBlock Grid.Row="9" Style="{StaticResource Label}" Text="Status code" />
+				<TextBlock Grid.Row="9" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.StatusCode}" />
+				<TextBlock Grid.Row="10" Style="{StaticResource Label}" Text="Pattern learned (%)" />
+				<TextBlock Grid.Row="10" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.EffortLearnedPercent}" />
+				<TextBlock Grid.Row="11" Style="{StaticResource Label}" Text="Rider power (W)" />
+				<TextBlock Grid.Row="11" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding Status.RiderWatts}" />
+				<TextBlock Grid.Row="12" Grid.ColumnSpan="2" Foreground="Gray" TextWrapping="Wrap" Margin="0 6 0 0" FontSize="11"
+					Text="Rider power means nothing on a stand: there's no bike to push." />
+			</Grid>
+		</GroupBox>
+
+		<!-- pedal sensor -->
+		<GroupBox Grid.Row="1" Grid.RowSpan="2" Grid.Column="4" Header="Pedal sensor check (for effort sensing)" Margin="0 10 0 0" Padding="8"
+			IsEnabled="{Binding IsRunning}">
+			<DockPanel>
+				<TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0 0 0 8"
+					Text="Records 6 crank turns and checks the sensor's edges repeat steadily enough for effort sensing. Assist goes to 0; turn the cranks forwards steadily by hand." />
+				<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0 0 0 8">
+					<Button Content="Check pedal sensor" Width="130" Height="24" Command="{Binding CheckSensorCommand}" />
+					<Button Content="Save capture..." Width="100" Height="24" Margin="8 0 0 0" Command="{Binding SaveCaptureCommand}" />
+				</StackPanel>
+				<Button DockPanel.Dock="Bottom" Content="Reset learned pattern..." Width="160" Height="24" HorizontalAlignment="Left" Margin="0 8 0 0"
+					Command="{Binding ResetPatternCommand}" />
+				<TextBox Text="{Binding SensorReport, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+			</DockPanel>
+		</GroupBox>
+	</Grid>
+</UserControl>

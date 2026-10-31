@@ -22,6 +22,7 @@ typedef struct
 	double phi_deg;			// crank angle
 	int next_edge;
 	bool throttle;			// app.c reports the throttle held every 5ms
+	bool bench;				// the config tool polls status every 5ms
 	double t;
 	long last_tick;
 	uint32_t now_ms;
@@ -50,6 +51,7 @@ static void crank_init(crank_t* c, unsigned seed, double start_deg)
 	c->last_tick = -1;
 	c->now_ms = 0;
 	c->throttle = false;
+	c->bench = false;
 }
 
 // pin states after edge k: PAS1 rise, PAS2 rise, PAS1 fall, PAS2 fall
@@ -115,6 +117,10 @@ static uint16_t ride_ramp(crank_t* c, double revs, double cadence_from, double c
 			g_hw.now_ms = 1000 + ms;
 			effort_process();
 			effort_set_motor_driven(c->throttle);
+			if (c->bench)
+			{
+				effort_block_learning();
+			}
 		}
 	}
 
@@ -328,6 +334,84 @@ static int test_effort_pauses_while_the_throttle_drives(void)
 	return 1;
 }
 
+static int test_effort_no_learning_on_the_bench(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 9, 0);
+
+	// the tool's Bench page is polling: nothing learned
+	c.bench = true;
+	ride(&c, 60, 80, 3.0, 150, -1);
+	ASSERT_EQ(0, effort_get_learned_percent());
+
+	// it stops: learning resumes once 5 s have passed
+	c.bench = false;
+	ride(&c, 4, 80, 3.0, 150, -1);
+	ASSERT_EQ(0, effort_get_learned_percent());
+	ride(&c, 60, 80, 3.0, 150, -1);
+	ASSERT_TRUE(effort_get_learned_percent() > 20);
+
+	return 1;
+}
+
+static int test_effort_reset_pattern_forgets_it(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 10, 0);
+	learn(&c);
+	g_hw.wheel_rpm_x10 = 0;
+	effort_process();	// saved while stopped
+	ASSERT_EQ(100, effort_get_learned_percent());
+
+	ASSERT_TRUE(effort_reset_pattern());
+	ASSERT_EQ(0, effort_get_learned_percent());
+
+	// and stays forgotten after a power cycle
+	effort_init();
+	ASSERT_EQ(0, effort_get_learned_percent());
+
+	return 1;
+}
+
+static int test_effort_capture_records_raw_edges(void)
+{
+	boot();
+	uint16_t buf[10], count = 0;
+	ASSERT_EQ(EFFORT_CAPTURE_IDLE, effort_read_capture(0, buf, 10, &count));
+
+	effort_start_capture();
+	for (int i = 0; i < EFFORT_CAPTURE_EDGES + 5; ++i)
+	{
+		g_hw.pas_edges[g_hw.pas_edge_count++] = (uint16_t)(100 + i) | (i & 1 ? PAS_EDGE_PAS1 : 0);
+		if (g_hw.pas_edge_count == 200)
+		{
+			effort_process();
+		}
+	}
+	effort_process();
+
+	ASSERT_EQ(EFFORT_CAPTURE_DONE, effort_read_capture(570, buf, 10, &count));
+	ASSERT_EQ(EFFORT_CAPTURE_EDGES, count);
+	ASSERT_EQ(100 + 570, buf[0]);
+	ASSERT_EQ((100 + 571) | PAS_EDGE_PAS1, buf[1]);
+	ASSERT_EQ(100 + 575, buf[5] & PAS_EDGE_TICKS_MASK);
+	ASSERT_EQ(0, buf[6]);	// past the end
+
+	// lost edges spoil a capture
+	effort_start_capture();
+	g_hw.pas_edges[g_hw.pas_edge_count++] = 123;
+	effort_process();
+	g_hw.pas_edge_overflow = true;
+	effort_process();
+	ASSERT_EQ(EFFORT_CAPTURE_OVERFLOW, effort_read_capture(0, buf, 10, &count));
+	ASSERT_EQ(1, count);
+	ASSERT_EQ(123, buf[0]);
+
+	return 1;
+}
+
 void test_effort_run(void)
 {
 	RUN_TEST(test_effort_learns_while_cruising);
@@ -338,4 +422,7 @@ void test_effort_run(void)
 	RUN_TEST(test_effort_tracks_rider_power_while_speeding_up);
 	RUN_TEST(test_effort_holds_through_a_gear_change);
 	RUN_TEST(test_effort_pauses_while_the_throttle_drives);
+	RUN_TEST(test_effort_no_learning_on_the_bench);
+	RUN_TEST(test_effort_reset_pattern_forgets_it);
+	RUN_TEST(test_effort_capture_records_raw_edges);
 }

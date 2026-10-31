@@ -42,6 +42,11 @@ typedef struct
 
 	uint16_t wheel_rpm_x10;
 
+	// PAS edges for pas_read_edges(), as the sensor ISR queues them
+	uint16_t pas_edges[256];
+	int pas_edge_count;
+	bool pas_edge_overflow;
+
 	int16_t temperature_contr_x100;
 	int16_t temperature_motor_x100;
 

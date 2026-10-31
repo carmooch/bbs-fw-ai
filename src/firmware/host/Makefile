@@ -24,11 +24,13 @@ LOGIC_SRCS = \
 	$(FW)/cfgstore.c \
 	$(FW)/effort.c \
 	$(FW)/eventlog.c \
+	$(FW)/extcom.c \
 	$(FW)/throttle.c
 
 TEST_SRCS = \
 	fake/fake_hw.c \
 	fake/fake_sensors.c \
+	fake/fake_uart.c \
 	test/test_main.c \
 	test/test_app.c \
 	test/test_battery.c \
@@ -41,6 +43,7 @@ SIM_SRCS = \
 	$(FW)/bbsx/sensors.c \
 	fake/fake_hw.c \
 	fake/fake_pins.c \
+	fake/fake_uart.c \
 	sim/sim.c \
 	sim/scenario.c
 

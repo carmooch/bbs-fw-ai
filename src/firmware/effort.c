@@ -64,6 +64,9 @@ typedef char learn_revs_check[(LEARN_REVS % 100 == 0) ? 1 : -1];
 // back to the level's fixed current.
 #define ASSIST_HOLD_MS				5000
 
+// No learning for this long after effort_block_learning().
+#define BENCH_BLOCK_MS				5000
+
 // Estimates are only trusted in this range.
 #define VALID_MIN_CADENCE_RPM		25
 #define VALID_MIN_SPEED_KPH			2
@@ -138,6 +141,14 @@ static uint16_t rider_torque_nm_x10;
 static bool valid;
 static uint16_t held_power_w;		// last valid estimate, for effort assist
 static uint32_t held_at_ms;
+
+// --- bench ---
+static uint32_t learning_blocked_at_ms;
+#if HAS_PAS_EDGE_TIMING
+static uint16_t capture[EFFORT_CAPTURE_EDGES];
+static uint16_t capture_count;
+static uint8_t capture_state;
+#endif
 static int32_t cos_sum;
 static int32_t sin_sum;
 
@@ -304,6 +315,10 @@ static void learn_revolution() __reentrant
 static bool learning_conditions() __reentrant
 {
 	uint16_t cadence = cadence_rpm_x10();
+	if (learning_blocked_at_ms != 0 && system_ms() - learning_blocked_at_ms < BENCH_BLOCK_MS)
+	{
+		return false;
+	}
 	return cadence >= LEARN_MIN_CADENCE_RPM * 10u &&
 		wheel_rpm_x10 >= kph_to_wheel_rpm_x10(LEARN_MIN_SPEED_KPH) &&
 		(uint32_t)wheel_rpm_x10 * 10u >= (uint32_t)cadence * LEARN_MIN_GEAR_X10;
@@ -566,9 +581,21 @@ void effort_process()
 		if (overflow)
 		{
 			lose_alignment();
+			if (capture_state == EFFORT_CAPTURE_RUNNING)
+			{
+				capture_state = EFFORT_CAPTURE_OVERFLOW;
+			}
 		}
 		for (uint8_t i = 0; i < n; ++i)
 		{
+			if (capture_state == EFFORT_CAPTURE_RUNNING)
+			{
+				capture[capture_count++] = edges[i];
+				if (capture_count == EFFORT_CAPTURE_EDGES)
+				{
+					capture_state = EFFORT_CAPTURE_DONE;
+				}
+			}
 			effort_add_edge(edges[i]);
 		}
 	} while (n == 8);
@@ -620,4 +647,48 @@ uint16_t effort_get_rider_torque_nm_x10()
 uint8_t effort_get_learned_percent()
 {
 	return learned_revs >= LEARN_REVS ? 100 : (uint8_t)(learned_revs / (LEARN_REVS / 100));
+}
+
+void effort_block_learning()
+{
+	learning_blocked_at_ms = system_ms();
+	if (learning_blocked_at_ms == 0)
+	{
+		learning_blocked_at_ms = 1;
+	}
+}
+
+bool effort_reset_pattern()
+{
+	// an empty record: no stored pattern reads back at any size
+	bool ok = cfgstore_write_effort_pattern(0, 0);
+	effort_init();
+	return ok;
+}
+
+void effort_start_capture()
+{
+#if HAS_PAS_EDGE_TIMING
+	capture_count = 0;
+	capture_state = EFFORT_CAPTURE_RUNNING;
+#endif
+}
+
+uint8_t effort_read_capture(uint16_t first, uint16_t* dst, uint8_t n, uint16_t* count) __reentrant
+{
+#if HAS_PAS_EDGE_TIMING
+	for (uint8_t i = 0; i < n; ++i)
+	{
+		dst[i] = first + i < capture_count ? capture[first + i] : 0;
+	}
+	*count = capture_count;
+	return capture_state;
+#else
+	for (uint8_t i = 0; i < n; ++i)
+	{
+		dst[i] = 0;
+	}
+	*count = 0;
+	return EFFORT_CAPTURE_IDLE;
+#endif
 }

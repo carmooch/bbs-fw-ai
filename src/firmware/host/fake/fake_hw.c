@@ -29,6 +29,7 @@ void fake_hw_reset(void)
 // --- system ---
 
 uint32_t system_ms() { return g_hw.now_ms; }
+void system_delay_ms(uint16_t ms) { g_hw.now_ms += ms; }
 
 // --- adc ---
 
@@ -53,16 +54,13 @@ void motor_set_target_speed(uint8_t percent) { g_hw.motor_target_speed = percent
 
 uint16_t motor_get_battery_voltage_x10() { return g_hw.battery_voltage_x10; }
 uint16_t motor_get_battery_current_x10() { return g_hw.battery_current_x10; }
+int16_t motor_calibrate_battery_voltage(uint16_t actual_voltage_x100) { (void)actual_voltage_x100; return 0; }
 
 // --- lights ---
 
 void lights_enable() { g_hw.lights_enabled = true; }
 void lights_disable() { g_hw.lights_enabled = false; }
 void lights_set(bool on) { g_hw.lights_on = on; }
-
-// --- uart (event log output goes nowhere) ---
-
-void uart_write(uint8_t byte) { (void)byte; }
 
 // --- eeprom: behaves like flash, erase sets 0xff and programming only clears bits ---
 

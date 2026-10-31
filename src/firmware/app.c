@@ -57,6 +57,7 @@ static assist_level_data_t assist_level_data;
 static uint16_t speed_limit_ramp_interval_rpm_x10;
 
 static bool cruise_paused;
+static uint8_t last_throttle_percent;	// for the config tool's Bench page
 static int8_t temperature_contr_c;
 static int8_t temperature_motor_c;
 
@@ -169,6 +170,7 @@ void app_process()
 	uint8_t target_current = 0;
 	uint8_t target_cadence = assist_level_data.level.max_cadence_percent;
 	uint8_t throttle_percent = throttle_map_response(throttle_read());
+	last_throttle_percent = throttle_percent;
 
 	bool pas_engaged = false;
 	bool throttle_override = false;
@@ -418,6 +420,11 @@ uint8_t app_get_status_code()
 	}
 
 	return STATUS_NORMAL;
+}
+
+uint8_t app_get_throttle_percent()
+{
+	return last_throttle_percent;
 }
 
 uint8_t app_get_temperature()

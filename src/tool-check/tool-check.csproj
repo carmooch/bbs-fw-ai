@@ -26,5 +26,8 @@
     <Compile Include="../tool/ViewModel/**/*.cs" />
     <Compile Include="../tool/Properties/Settings.Designer.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="E2E.cs" />
+    <None Include="fake_stcgal.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../tool/flash/stcgal_entry.py" Link="stcgal_entry.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

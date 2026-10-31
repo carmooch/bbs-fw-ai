@@ -20,6 +20,7 @@
 #include "intellisense.h"
 #include "fwconfig.h"
 #include "effort.h"
+#include "throttle.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -45,11 +46,19 @@
 #define OPCODE_READ_EVTLOG_ENABLE				0x02
 #define OPCODE_READ_CONFIG						0x03
 #define OPCODE_READ_STATUS						0x04
+#define OPCODE_READ_PAS_CAPTURE					0x05
 
 #define OPCODE_WRITE_EVTLOG_ENABLE				0xf0
 #define OPCODE_WRITE_CONFIG						0xf1
 #define OPCODE_WRITE_RESET_CONFIG				0xf2
 #define OPCODE_WRITE_ADC_VOLTAGE_CALIBRATION	0xf3
+#define OPCODE_WRITE_RESET_EFFORT				0xf4
+#define OPCODE_WRITE_START_PAS_CAPTURE			0xf5
+
+// Bench page replies stay within the UART transmit buffer (32 bytes), so
+// answering never stalls the main loop, even with the motor running.
+#define STATUS_PAYLOAD_SIZE						21
+#define CAPTURE_EDGES_PER_READ					10
 
 
 // Bafang display communication
@@ -99,12 +108,15 @@ static int16_t try_process_bafang_write_request();
 static int16_t process_read_fw_version();
 static int16_t process_read_evtlog_enable();
 static int16_t process_read_config();
-static int16_t process_read_status();
+static int16_t process_read_status() __reentrant;
+static int16_t process_read_pas_capture() __reentrant;
 
 static int16_t process_write_evtlog_enable();
 static int16_t process_write_config();
 static int16_t process_write_reset_config();
 static int16_t process_write_adc_voltage_calibration();
+static int16_t process_write_reset_effort();
+static int16_t process_write_start_pas_capture();
 
 
 static int16_t process_bafang_display_read_status();
@@ -113,6 +125,7 @@ static int16_t process_bafang_display_read_battery();
 static int16_t process_bafang_display_read_speed();
 static int16_t process_bafang_display_read_unknown1();
 static int16_t process_bafang_display_read_range();
+static uint16_t range_field_value();
 static int16_t process_bafang_display_read_calories();
 static int16_t process_bafang_display_read_unknown3();
 static int16_t process_bafang_display_read_moving();
@@ -253,6 +266,8 @@ static int16_t try_process_read_request()
 		return process_read_config();
 	case OPCODE_READ_STATUS:
 		return process_read_status();
+	case OPCODE_READ_PAS_CAPTURE:
+		return process_read_pas_capture();
 	}
 
 	return DISCARD;
@@ -275,6 +290,10 @@ static int16_t try_process_write_request()
 		return process_write_reset_config();
 	case OPCODE_WRITE_ADC_VOLTAGE_CALIBRATION:
 		return process_write_adc_voltage_calibration();
+	case OPCODE_WRITE_RESET_EFFORT:
+		return process_write_reset_effort();
+	case OPCODE_WRITE_START_PAS_CAPTURE:
+		return process_write_start_pas_capture();
 	}
 
 	return DISCARD;
@@ -420,10 +439,110 @@ static int16_t process_read_config()
 	return 3;
 }
 
-static int16_t process_read_status()
+// Everything the display shows, plus live data it doesn't, for the config
+// tool's Bench page. It also stops effort learning until power-off, since the
+// bike is on a stand (see effort_block_learning()).
+static int16_t process_read_status() __reentrant
 {
-	// :TODO:
-	return 0;
+	if (msg_len < 3)
+	{
+		return KEEP;
+	}
+
+	if (compute_checksum(msgbuf, 2) == msgbuf[2])
+	{
+		uint8_t flags =
+			(pas_is_pedaling_forwards() ? 0x01 : 0) |
+			(pas_is_pedaling_backwards() ? 0x02 : 0) |
+			(brake_is_activated() ? 0x04 : 0) |
+			(app_get_lights() ? 0x08 : 0) |
+			(effort_is_valid() ? 0x10 : 0) |
+			(speed_sensor_is_moving() ? 0x20 : 0) |
+			(throttle_ok() ? 0x40 : 0);
+		uint16_t cadence = pas_get_cadence_rpm_x10();
+		uint16_t wheel = speed_sensor_get_rpm_x10();
+		uint16_t volts = motor_get_battery_voltage_x10();
+		uint16_t amps = motor_get_battery_current_x10();
+		uint16_t range = range_field_value();
+		uint16_t rider = effort_get_rider_power_w();
+
+		effort_block_learning();
+
+		uint8_t checksum = 0;
+		write_uart_and_increment_checksum(REQUEST_TYPE_READ, &checksum);
+		write_uart_and_increment_checksum(OPCODE_READ_STATUS, &checksum);
+		write_uart_and_increment_checksum(STATUS_PAYLOAD_SIZE, &checksum);
+		write_uart_and_increment_checksum(app_get_assist_level(), &checksum);
+		write_uart_and_increment_checksum(flags, &checksum);
+		write_uart_and_increment_checksum((uint8_t)(cadence >> 8), &checksum);
+		write_uart_and_increment_checksum((uint8_t)cadence, &checksum);
+		write_uart_and_increment_checksum((uint8_t)(wheel >> 8), &checksum);
+		write_uart_and_increment_checksum((uint8_t)wheel, &checksum);
+		write_uart_and_increment_checksum(motor_get_target_current(), &checksum);
+		write_uart_and_increment_checksum(motor_get_target_speed(), &checksum);
+		write_uart_and_increment_checksum((uint8_t)(volts >> 8), &checksum);
+		write_uart_and_increment_checksum((uint8_t)volts, &checksum);
+		write_uart_and_increment_checksum((uint8_t)(amps >> 8), &checksum);
+		write_uart_and_increment_checksum((uint8_t)amps, &checksum);
+		write_uart_and_increment_checksum(battery_get_mapped_percent(), &checksum);
+		write_uart_and_increment_checksum(app_get_throttle_percent(), &checksum);
+		write_uart_and_increment_checksum(app_get_temperature(), &checksum);
+		write_uart_and_increment_checksum(app_get_status_code(), &checksum);
+		write_uart_and_increment_checksum((uint8_t)(range >> 8), &checksum);
+		write_uart_and_increment_checksum((uint8_t)range, &checksum);
+		write_uart_and_increment_checksum((uint8_t)(rider >> 8), &checksum);
+		write_uart_and_increment_checksum((uint8_t)rider, &checksum);
+		write_uart_and_increment_checksum(effort_get_learned_percent(), &checksum);
+		uart_write(checksum);
+	}
+	else
+	{
+		eventlog_write(EVT_ERROR_EXTCOM_CHEKSUM);
+		return DISCARD;
+	}
+
+	return 3;
+}
+
+// Request: first edge index (2 bytes). Reply: capture state, edges captured
+// (2 bytes), first index (2 bytes) and CAPTURE_EDGES_PER_READ edges.
+static int16_t process_read_pas_capture() __reentrant
+{
+	if (msg_len < 5)
+	{
+		return KEEP;
+	}
+
+	if (compute_checksum(msgbuf, 4) == msgbuf[4])
+	{
+		uint16_t first = ((uint16_t)msgbuf[2] << 8) | msgbuf[3];
+		effort_block_learning();
+		uint16_t edges[CAPTURE_EDGES_PER_READ];
+		uint16_t count;
+		uint8_t state = effort_read_capture(first, edges, CAPTURE_EDGES_PER_READ, &count);
+
+		uint8_t checksum = 0;
+		write_uart_and_increment_checksum(REQUEST_TYPE_READ, &checksum);
+		write_uart_and_increment_checksum(OPCODE_READ_PAS_CAPTURE, &checksum);
+		write_uart_and_increment_checksum(state, &checksum);
+		write_uart_and_increment_checksum((uint8_t)(count >> 8), &checksum);
+		write_uart_and_increment_checksum((uint8_t)count, &checksum);
+		write_uart_and_increment_checksum(msgbuf[2], &checksum);
+		write_uart_and_increment_checksum(msgbuf[3], &checksum);
+		for (uint8_t i = 0; i < CAPTURE_EDGES_PER_READ; ++i)
+		{
+			write_uart_and_increment_checksum((uint8_t)(edges[i] >> 8), &checksum);
+			write_uart_and_increment_checksum((uint8_t)edges[i], &checksum);
+		}
+		uart_write(checksum);
+	}
+	else
+	{
+		eventlog_write(EVT_ERROR_EXTCOM_CHEKSUM);
+		return DISCARD;
+	}
+
+	return 5;
 }
 
 static int16_t process_write_evtlog_enable()
@@ -507,6 +626,59 @@ static int16_t process_write_reset_config()
 		write_uart_and_increment_checksum(REQUEST_TYPE_WRITE, &checksum);
 		write_uart_and_increment_checksum(OPCODE_WRITE_RESET_CONFIG, &checksum);
 		write_uart_and_increment_checksum((uint8_t)res, &checksum);
+		uart_write(checksum);
+	}
+	else
+	{
+		eventlog_write(EVT_ERROR_EXTCOM_CHEKSUM);
+		return DISCARD;
+	}
+
+	return 3;
+}
+
+static int16_t process_write_reset_effort()
+{
+	if (msg_len < 3)
+	{
+		return KEEP;
+	}
+
+	if (compute_checksum(msgbuf, 2) == msgbuf[2])
+	{
+		bool res = effort_reset_pattern();
+
+		uint8_t checksum = 0;
+		write_uart_and_increment_checksum(REQUEST_TYPE_WRITE, &checksum);
+		write_uart_and_increment_checksum(OPCODE_WRITE_RESET_EFFORT, &checksum);
+		write_uart_and_increment_checksum((uint8_t)res, &checksum);
+		uart_write(checksum);
+	}
+	else
+	{
+		eventlog_write(EVT_ERROR_EXTCOM_CHEKSUM);
+		return DISCARD;
+	}
+
+	return 3;
+}
+
+static int16_t process_write_start_pas_capture()
+{
+	if (msg_len < 3)
+	{
+		return KEEP;
+	}
+
+	if (compute_checksum(msgbuf, 2) == msgbuf[2])
+	{
+		effort_start_capture();
+		effort_block_learning();
+
+		uint8_t checksum = 0;
+		write_uart_and_increment_checksum(REQUEST_TYPE_WRITE, &checksum);
+		write_uart_and_increment_checksum(OPCODE_WRITE_START_PAS_CAPTURE, &checksum);
+		write_uart_and_increment_checksum(1, &checksum);
 		uart_write(checksum);
 	}
 	else
@@ -666,6 +838,21 @@ static int16_t process_bafang_display_read_range()
 		return KEEP;
 	}
 
+	uint16_t value = range_field_value();
+
+	uint8_t checksum = 0;
+
+	write_uart_and_increment_checksum((uint8_t)(value >> 8), &checksum);
+	write_uart_and_increment_checksum((uint8_t)value, &checksum);
+	uart_write(checksum); // checksum
+
+	return 3;
+}
+
+// What the display's Range field shows, see DISPLAY_RANGE_FIELD_* (also sent
+// to the config tool's Bench page).
+static uint16_t range_field_value()
+{
 	uint16_t value = 0;
 
 	switch (g_config.display_range_field)
@@ -714,13 +901,7 @@ static int16_t process_bafang_display_read_range()
 		break;
 	}
 
-	uint8_t checksum = 0;
-
-	write_uart_and_increment_checksum((uint8_t)(value >> 8), &checksum);
-	write_uart_and_increment_checksum((uint8_t)value, &checksum);
-	uart_write(checksum); // checksum
-
-	return 3;
+	return value;
 }
 
 static int16_t process_bafang_display_read_calories()

@@ -98,12 +98,29 @@ The bike model is deliberately simple. Keep these in mind when reading results:
 ## Config tool
 
 `src/tool` is the Windows (WPF) config tool. CI publishes it from `windows-latest` as the
-`BBSFWTool` artifact.
+`BBSFWTool` artifact, with `flash/` alongside it for the Update Firmware tab:
 
-`src/tool-check/check.sh` checks the tool against the firmware without Windows: it dumps a
-`config_t` from C, then the tool's own Model/ViewModel code (built against the WPF reference
-assemblies) has to parse it into the right fields and write it back byte-for-byte. Run it whenever
-the config layout changes. It needs gcc and the .NET 8 SDK.
+- `stcgal.exe`: [stcgal](https://github.com/grigorig/stcgal) 1.10, built with PyInstaller from
+  `src/tool/flash/stcgal_entry.py`;
+- `bbs-fw-BBSHD.hex`: the firmware from the same commit;
+- `version.txt`: its version, which the wizard checks the controller reports after flashing.
+
+`src/tool-check/check.sh` checks the tool against the firmware without Windows. It needs gcc,
+make, python3 and the .NET 8 SDK. The tool's own Model and ViewModel code is built against the WPF
+reference assemblies, then:
+
+- **Layout:** a `config_t` dumped from C has to parse into the right fields and write back
+  byte-for-byte. Run it whenever the config layout changes.
+- **End to end** (`E2E.cs`): the tool's connection, Bench page and Update Firmware wizard against a
+  **virtual controller**. That's the ride simulator with the real `extcom.c` on a Linux pseudo-terminal
+  (`ride_sim <scenario> <out.csv> --serial`, which prints the pty's path). `sim/bench.sim` is a bike
+  pedalled on a stand, and `sim/bench_noisy.sim` the same with a jittery pedal sensor
+  (`bike pas_edge_jitter_deg`). `fake_stcgal.py` stands in for stcgal, printing what stcgal prints.
+  With stcgal installed (`pip install stcgal==1.10`, as CI does), the real stcgal's power prompt is
+  checked too.
+
+.NET's `SerialPort` can't open a pseudo-terminal, so the tests use `BbsfwConnection.OpenTransport`
+to read and write it as a file instead. Everything above the transport is the code the tool runs.
 
 ## Line endings
 

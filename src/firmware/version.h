@@ -11,7 +11,7 @@
 
 // bbs-fw-ai fork versions start at 2.0.0 so they're never mistaken for upstream 1.x
 #define VERSION_MAJOR		2
-#define VERSION_MINOR		1
+#define VERSION_MINOR		2
 #define VERSION_PATCH		0
 
 

@@ -44,16 +44,33 @@ namespace BBSFW.Model
 		private const int OPCODE_READ_FW_VERSION =		0x01;
 		private const int OPCODE_READ_EVTLOG_ENABLE =	0x02;
 		private const int OPCODE_READ_CONFIG =			0x03;
+		private const int OPCODE_READ_STATUS =			0x04;
+		private const int OPCODE_READ_PAS_CAPTURE =		0x05;
 
 		private const int OPCODE_WRITE_EVTLOG_ENABLE =	0xf0;
 		private const int OPCODE_WRITE_CONFIG =			0xf1;
 		private const int OPCODE_WRITE_RESET_CONFIG =	0xf2;
 		private const int OPCODE_WRITE_ADC_VOLTAGE_CALIBRATION = 0xf3;
+		private const int OPCODE_WRITE_RESET_EFFORT =	0xf4;
+		private const int OPCODE_WRITE_START_PAS_CAPTURE = 0xf5;
+
+		// Bafang display protocol, as the display sends it (no reply)
+		private const int BAFANG_REQUEST_WRITE =		0x16;
+		private const int BAFANG_OPCODE_WRITE_PAS =		0x0b;
+		private const int BAFANG_OPCODE_WRITE_LIGHTS =	0x1a;
+
+		// display codes for assist levels 0-9, then walk
+		private static readonly byte[] BafangLevelCodes = { 0x00, 0x01, 0x0b, 0x0c, 0x0d, 0x02, 0x15, 0x16, 0x17, 0x03, 0x06 };
+
+		public const int PasCaptureEdgesPerRead = 10;
 
 		private const int Keep = 0;
 		private const int Discard = -1;
 
-		private SerialPort _port = null;
+		private IPortTransport _port = null;
+
+		// How a port is opened: the serial port, or (in tests) a stand-in.
+		public static Func<ComPort, IPortTransport> OpenTransport = p => new SerialPortTransport(p.Name);
 		private volatile bool _isConnecting = false;
 		private volatile bool _isConnected = false;
 		private Controller _controllerType = Controller.Unknown;
@@ -66,6 +83,10 @@ namespace BBSFW.Model
 		private CompletionQueue<bool> _writeConfigCq = new CompletionQueue<bool>();
 		private CompletionQueue<bool> _writeResetConfigCq = new CompletionQueue<bool>();
 		private CompletionQueue<bool> _writeVoltageCalibrationCq = new CompletionQueue<bool>();
+		private CompletionQueue<ControllerStatus> _readStatusCq = new CompletionQueue<ControllerStatus>();
+		private CompletionQueue<PasCaptureChunk> _readPasCaptureCq = new CompletionQueue<PasCaptureChunk>();
+		private CompletionQueue<bool> _writeResetEffortCq = new CompletionQueue<bool>();
+		private CompletionQueue<bool> _writeStartPasCaptureCq = new CompletionQueue<bool>();
 
 
 		private int ConfigVersion = 0;
@@ -128,9 +149,8 @@ namespace BBSFW.Model
 			_controllerType = Controller.Unknown;
 			_isConnected = false;
 			_isConnecting = true;
-			_port = new SerialPort(port.Name, 1200);
-			_port.DataReceived += OnDataReceived;
-			_port.Open();
+			_port = OpenTransport(port);
+			_port.Received += OnDataReceived;
 
 			var connected = await Task.Run(() => SetupConnection(timeout));
 			if (!connected)
@@ -148,8 +168,8 @@ namespace BBSFW.Model
 				_isConnected = false;
 				_isConnecting = false;
 
+				_port.Received -= OnDataReceived;
 				_port.Close();
-				_port.DataReceived -= OnDataReceived;
 				_port = null;
 
 				lock (_rxBuffer)
@@ -164,30 +184,87 @@ namespace BBSFW.Model
 
 		public async Task<RequestResult<Configuration>> ReadConfiguration(TimeSpan timeout)
 		{
+			var reply = _readConfigCq.Expect(timeout);
 			SendReadRequest(OPCODE_READ_CONFIG);
-			return await _readConfigCq.WaitResponse(timeout);
+			return await reply;
 		}
 
 		public async Task<RequestResult<bool>> WriteConfiguration(Configuration configuration, TimeSpan timeout)
 		{
+			var reply = _writeConfigCq.Expect(timeout);
 			SendWriteConfigRequest(configuration);
-			return await _writeConfigCq.WaitResponse(timeout);
+			return await reply;
 		}
 
 		public async Task<RequestResult<bool>> ResetConfiguration(TimeSpan timeout)
 		{
+			var reply = _writeResetConfigCq.Expect(timeout);
 			SendWriteResetConfigRequest();
-			return await _writeResetConfigCq.WaitResponse(timeout);
+			return await reply;
 		}
 
 		public async Task<RequestResult<bool>> CalibrateBatteryVoltage(float actualVolts, TimeSpan timeout)
 		{
+			var reply = _writeVoltageCalibrationCq.Expect(timeout);
 			SendWriteVoltageCalibration(actualVolts);
-			return await _writeVoltageCalibrationCq.WaitResponse(timeout);
+			return await reply;
+		}
+
+		// --- bench (firmware 2.2 and later) ---
+
+		public bool SupportsBench => FirmwareVersion != null && FirmwareVersion >= new Version(2, 2, 0);
+
+		public Version FirmwareVersion { get; private set; }
+
+		// Live data. Polling this also stops effort learning in the firmware,
+		// since on a stand the cranks don't move like on the road.
+		public async Task<RequestResult<ControllerStatus>> ReadStatus(TimeSpan timeout)
+		{
+			var reply = _readStatusCq.Expect(timeout);
+			SendReadRequest(OPCODE_READ_STATUS);
+			return await reply;
+		}
+
+		public async Task<RequestResult<bool>> ResetEffortPattern(TimeSpan timeout)
+		{
+			var reply = _writeResetEffortCq.Expect(timeout);
+			SendSimpleWriteRequest(OPCODE_WRITE_RESET_EFFORT);
+			return await reply;
+		}
+
+		public async Task<RequestResult<bool>> StartPasCapture(TimeSpan timeout)
+		{
+			var reply = _writeStartPasCaptureCq.Expect(timeout);
+			SendSimpleWriteRequest(OPCODE_WRITE_START_PAS_CAPTURE);
+			return await reply;
+		}
+
+		public async Task<RequestResult<PasCaptureChunk>> ReadPasCapture(int first, TimeSpan timeout)
+		{
+			var reply = _readPasCaptureCq.Expect(timeout);
+			var buf = new List<byte> { REQUEST_TYPE_READ, OPCODE_READ_PAS_CAPTURE, (byte)(first >> 8), (byte)first };
+			buf.Add(ComputeChecksum(buf, buf.Count));
+			_port.Write(buf.ToArray(), 0, buf.Count);
+			return await reply;
+		}
+
+		// As the display does it: level 0-9, or 10 for walk. No reply.
+		public void SetAssistLevel(int level)
+		{
+			var buf = new List<byte> { BAFANG_REQUEST_WRITE, BAFANG_OPCODE_WRITE_PAS, BafangLevelCodes[level] };
+			buf.Add(ComputeChecksum(buf, buf.Count));
+			_port.Write(buf.ToArray(), 0, buf.Count);
+		}
+
+		public void SetLights(bool on)
+		{
+			var buf = new byte[] { BAFANG_REQUEST_WRITE, BAFANG_OPCODE_WRITE_LIGHTS, (byte)(on ? 0xf1 : 0xf0) };
+			_port.Write(buf, 0, buf.Length);
 		}
 
 
-		private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
+		// data == null: the port closed
+		private void OnDataReceived(byte[] data)
 		{
 			// check for communication error and reset
 			if (_rxBuffer.Any() && DateTime.Now - _lastRecv > TimeSpan.FromMilliseconds(1000))
@@ -195,23 +272,13 @@ namespace BBSFW.Model
 				_rxBuffer.Clear();
 			}
 
-			bool close = false;
-			lock(_rxBuffer)
+			bool close = data == null;
+			if (!close)
 			{
-				while (_port.BytesToRead > 0)
+				lock(_rxBuffer)
 				{
 					_lastRecv = DateTime.Now;
-
-					var b = _port.ReadByte();
-					if (b == -1)
-					{
-						close = true;
-						break;
-					}
-					else
-					{
-						_rxBuffer.Add((byte)b);
-					}
+					_rxBuffer.AddRange(data);
 				}
 			}
 			
@@ -297,6 +364,10 @@ namespace BBSFW.Model
 				return ProcessReadResponseEvtlogEnable();
 			case OPCODE_READ_CONFIG:
 				return ProcessReadResponseConfig();
+			case OPCODE_READ_STATUS:
+				return ProcessReadResponseStatus();
+			case OPCODE_READ_PAS_CAPTURE:
+				return ProcessReadResponsePasCapture();
 			}
 
 			return -1;
@@ -333,6 +404,7 @@ namespace BBSFW.Model
 			if (ComputeChecksum(_rxBuffer, size - 1) == _rxBuffer[size - 1])
 			{
 				ConfigVersion = _rxBuffer[5];
+				FirmwareVersion = new Version(major, minor, patch);
 
 				if (_isConnecting)
 				{
@@ -447,9 +519,87 @@ namespace BBSFW.Model
 					return ProcessWriteResponseResetConfig();
 				case OPCODE_WRITE_ADC_VOLTAGE_CALIBRATION:
 					return ProcessWriteResponseVoltageCalibration();
+				case OPCODE_WRITE_RESET_EFFORT:
+					return ProcessWriteResponseBool(_writeResetEffortCq);
+				case OPCODE_WRITE_START_PAS_CAPTURE:
+					return ProcessWriteResponseBool(_writeStartPasCaptureCq);
 			}
 
 			return Discard;
+		}
+
+		private int ProcessReadResponseStatus()
+		{
+			// type, opcode, payload length, payload, checksum
+			if (_rxBuffer.Count < 3)
+			{
+				return Keep;
+			}
+
+			int size = 3 + _rxBuffer[2] + 1;
+			if (_rxBuffer.Count < size)
+			{
+				return Keep;
+			}
+
+			if (ComputeChecksum(_rxBuffer, size - 1) != _rxBuffer[size - 1])
+			{
+				return Discard;
+			}
+
+			var status = ControllerStatus.Parse(_rxBuffer.Skip(3).Take(_rxBuffer[2]).ToArray(), DateTime.Now);
+			if (status != null)
+			{
+				_readStatusCq.Complete(status);
+			}
+
+			return size;
+		}
+
+		private int ProcessReadResponsePasCapture()
+		{
+			// type, opcode, state, count (2), first (2), edges (2 each), checksum
+			const int MessageSize = 7 + 2 * PasCaptureEdgesPerRead + 1;
+
+			if (_rxBuffer.Count < MessageSize)
+			{
+				return Keep;
+			}
+
+			if (ComputeChecksum(_rxBuffer, MessageSize - 1) != _rxBuffer[MessageSize - 1])
+			{
+				return Discard;
+			}
+
+			var edges = new ushort[PasCaptureEdgesPerRead];
+			for (int i = 0; i < edges.Length; ++i)
+			{
+				edges[i] = (ushort)(_rxBuffer[7 + 2 * i] << 8 | _rxBuffer[8 + 2 * i]);
+			}
+
+			_readPasCaptureCq.Complete(new PasCaptureChunk
+			{
+				State = (PasCaptureState)_rxBuffer[2],
+				Count = _rxBuffer[3] << 8 | _rxBuffer[4],
+				First = _rxBuffer[5] << 8 | _rxBuffer[6],
+				Edges = edges
+			});
+
+			return MessageSize;
+		}
+
+		private int ProcessWriteResponseBool(CompletionQueue<bool> cq)
+		{
+			const int MessageSize = 4;
+
+			if (_rxBuffer.Count < MessageSize)
+			{
+				return Keep;
+			}
+
+			cq.Complete(_rxBuffer[2] != 0);
+
+			return MessageSize;
 		}
 
 		private int ProcessWriteResponseEvtlogEnable()
@@ -598,6 +748,13 @@ namespace BBSFW.Model
 			_port.Write(buf.ToArray(), 0, buf.Count);
 		}
 
+		private void SendSimpleWriteRequest(byte opcode)
+		{
+			var buf = new List<byte> { REQUEST_TYPE_WRITE, opcode };
+			buf.Add(ComputeChecksum(buf, buf.Count));
+			_port.Write(buf.ToArray(), 0, buf.Count);
+		}
+
 		private void SendWriteResetConfigRequest()
 		{
 			var buf = new List<byte>();
@@ -654,5 +811,58 @@ namespace BBSFW.Model
 			}
 		}
 
+	}
+
+	public interface IPortTransport
+	{
+		void Write(byte[] buffer, int offset, int count);
+		void Close();
+
+		// received bytes; null when the port closed
+		event Action<byte[]> Received;
+	}
+
+	public class SerialPortTransport : IPortTransport
+	{
+		private readonly SerialPort _port;
+
+		public event Action<byte[]> Received;
+
+		public SerialPortTransport(string name)
+		{
+			_port = new SerialPort(name, 1200);
+			_port.DataReceived += OnDataReceived;
+			_port.Open();
+		}
+
+		public void Write(byte[] buffer, int offset, int count)
+		{
+			_port.Write(buffer, offset, count);
+		}
+
+		public void Close()
+		{
+			_port.DataReceived -= OnDataReceived;
+			_port.Close();
+		}
+
+		private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
+		{
+			var data = new List<byte>();
+			while (_port.IsOpen && _port.BytesToRead > 0)
+			{
+				var b = _port.ReadByte();
+				if (b == -1)
+				{
+					Received?.Invoke(null);
+					return;
+				}
+				data.Add((byte)b);
+			}
+			if (data.Count > 0)
+			{
+				Received?.Invoke(data.ToArray());
+			}
+		}
 	}
 }

@@ -1,21 +1,78 @@
-# Tuning bbs-fw-ai 2.1
+# Tuning bbs-fw-ai 2.2
 
 Everything new since upstream has its own setting, so it can be switched on and judged one change at a
 time. If several change at once and the bike feels wrong, there's no telling which one did it.
 
-## Before you flash
+## Flashing: the Update Firmware tab
 
-1. From the latest green CI run on `master`, download **bbs-fw-BBSHD** (the firmware `.hex`) and
-   **BBSFWTool** (the config tool, which needs the .NET 6 Desktop Runtime, the same as the upstream tool).
-2. Flash the hex the usual way, with the same STC flashing tool and cable as before (see the
-   [upstream wiki](https://github.com/danielnilsson9/bbs-fw/wiki/Flash-Firmware-(BBS02-&-BBSHD))).
-   The flashing tool hasn't changed; only the config tool is new. Your existing settings carry
-   over: the firmware converts the old config on first boot.
-3. Use the 2.1 config tool from now on. Older tools (upstream 1.5, or 2.0) reject the new config
-   version, so they can't read or write 2.1 settings.
+From the latest green CI run on `master`, download **BBSFWTool** and unzip it. It needs the .NET 6
+Desktop Runtime, the same as the upstream tool. It contains the matching firmware and a flasher
+(stcgal), so nothing else is needed: no STC-ISP, no separate firmware download.
 
+1. Plug the programming cable into the controller and the laptop. Battery on, not charging.
+2. Open **Update Firmware** (the first tab), pick the cable's port and click **Start**.
+3. Do what the page says. It asks you to switch the controller **off** and **on** three times:
+   - the controller's chip only accepts new firmware in the moment after it's switched on;
+   - use the battery's switch, or unplug and replug the cable if yours powers the controller.
+   The highlighted box tells you when.
+
+What it does, in order:
+
+- **Backs up your settings** to a file (shown at the end) before anything else.
+- **Checks the chip.** It continues only for the BBSHD chips bbs-fw supports (STC15W4K56S4,
+  IAP15W4K61S4), and stops for anything else.
+- **Flashes** with the same settings as the upstream wiki (STC15, 20 MHz). The log shows the exact
+  stcgal command.
+- **Checks** the new version answers and your settings came through. If the flash erased them,
+  it offers to restore the backup.
+
+A failed or interrupted flash is safe to retry: the chip's loader can't be overwritten. If
+Windows flags `stcgal.exe` (an unsigned, packaged Python program), allow it, or flash manually.
+
+**Manual flashing**, if you prefer: the hex is `flash/bbs-fw-BBSHD.hex` in the download, flashed
+as in the [upstream wiki](https://github.com/danielnilsson9/bbs-fw/wiki/Flash-Firmware-(BBS02-&-BBSHD))
+with STC-ISP and 20 MHz.
+
+Older config tools (upstream 1.5, or 2.0/2.1) can't read or write 2.2 settings: use this one.
 Going back to upstream firmware later resets the settings to defaults, because upstream doesn't
-understand this fork's config. Write your settings down first.
+understand this fork's config. Keep the backup the wizard makes.
+
+## Bench testing: the Bench tab
+
+With the cable in place of the display, the tool acts as the display. Use it with the bike on a
+stand and the **rear wheel off the ground**: the motor can spin the wheel at full speed.
+
+1. **Connection** tab: connect. Then **Bench** tab: **Start**.
+2. **Display:** assist level buttons, lights, and what the SW102T would show (speed, battery,
+   current, the Range field). **Live data:** what it can't show (cadence, motor current asked
+   for, motor speed cap, brake, throttle, temperature, learning progress).
+3. **Record to CSV** while you try things. A recording is what to send back if something looks
+   wrong.
+
+A short checklist after flashing:
+
+| Check | How | Expect |
+|---|---|---|
+| Settings came through | Bench: speed sensor, battery % | Speed while the wheel turns, sensible battery % |
+| Assist starts and stops | Level 1, turn the cranks by hand, stop | Motor current within half a turn; back to zero as soon as you stop |
+| Brake cut-off | Pedal at level 1, pull a brake lever | Current to zero at once, Brake = True |
+| Throttle | Level 1, twist gently | Throttle % follows; motor responds |
+| Levels | Step 0 → 9 | Motor current asked for rises with the level |
+
+**Pedal sensor check** (for effort sensing): **Check pedal sensor**, then turn the cranks forwards
+steadily by hand for about 10 seconds (assist goes to 0). It records 6 turns and reports:
+
+- whether the two sensor channels give their edges in the right order;
+- how much each edge wanders from turn to turn, compared with what the controller's timing alone
+  causes. "Clean" means effort sensing is worth the ride test below; "Noisy" means it probably won't
+  work on this sensor.
+
+**Save capture...** keeps the raw edges, for me to look at.
+
+While the Bench tab runs, effort sensing doesn't learn, and it stays that way until the controller
+is switched off. On a stand, the cranks wobble far more than on the road, and learning there would
+spoil the pattern. If learning ran on the stand anyway (Range counted up), **Reset learned pattern**
+starts it again.
 
 ## Already on after flashing
 
@@ -60,6 +117,8 @@ your power out from that wobble. It works in the simulator. Nobody knows yet whe
 a real BBSHD: that's what this experiment is for. Nothing changes how the bike rides until you
 set Effort Assist on a level.
 
+0. **Bench first** (optional, recommended): the pedal sensor check on the Bench tab says whether
+   the sensor is steady enough before you ride.
 1. **Show it.** System → Effort Sensing → Range Field Shows: **Your Power**. Set Bike + Rider
    Mass to your real total. Write the config.
 2. **Let it learn the sensor.** The Range field counts 0 → 100. It only counts while you ride

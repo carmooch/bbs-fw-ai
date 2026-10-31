@@ -78,12 +78,20 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Check C# config tool against the C config_t
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install stcgal (for the real-stcgal check)
+        run: pip install stcgal==1.10
+
+      - name: Config tool against the firmware (layout, bench, flash wizard)
         run: src/tool-check/check.sh
 
   config-tool:
     name: Config tool (Windows)
     runs-on: windows-latest
+    needs: firmware
     steps:
       - uses: actions/checkout@v4
 
@@ -93,6 +101,38 @@ jobs:
 
       - name: Publish
         run: dotnet publish src/tool/bbs-fw-tool.csproj -c Release -o publish
+
+      # The Update Firmware tab flashes with what's in publish/flash: the
+      # firmware from this same commit and stcgal (open-source STC flasher).
+      - uses: actions/download-artifact@v4
+        with:
+          name: bbs-fw-BBSHD
+          path: firmware
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Bundle stcgal and the firmware
+        shell: pwsh
+        run: |
+          pip install stcgal==1.10 pyinstaller==6.10.0
+          pyinstaller --onefile --name stcgal --distpath publish/flash --workpath build/stcgal --specpath build/stcgal src/tool/flash/stcgal_entry.py
+          Copy-Item firmware/bbs-fw.hex publish/flash/bbs-fw-BBSHD.hex
+          $h = Get-Content src/firmware/version.h -Raw
+          $v = @('MAJOR','MINOR','PATCH') | ForEach-Object { [regex]::Match($h, "VERSION_$_\s+(\d+)").Groups[1].Value }
+          ($v -join '.') | Set-Content -NoNewline publish/flash/version.txt
+          Copy-Item src/tool/flash/STCGAL-LICENSE.txt publish/flash/
+
+      - name: Check the bundle
+        shell: pwsh
+        run: |
+          $out = & publish/flash/stcgal.exe -V
+          if ($out -notmatch 'stcgal 1\.10') { throw "stcgal.exe: $out" }
+          $v = Get-Content publish/flash/version.txt
+          $tool = (Get-Item publish/BBSFWTool.exe).VersionInfo.FileVersion
+          if (-not $tool.StartsWith($v)) { throw "firmware $v but tool $tool" }
+          Get-ChildItem publish/flash
 
       - uses: actions/upload-artifact@v4
         with:

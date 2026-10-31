@@ -7,7 +7,7 @@
 		xmlns:vm="clr-namespace:BBSFW.ViewModel"
 		xmlns:vw="clr-namespace:BBSFW.View"
         mc:Ignorable="d"
-        Title="BBS-FW Tool" Height="640" Width="860"
+        Title="BBS-FW Tool" Height="660" Width="980"
 		Background="#FFE8E8E8">
 
 	<Window.DataContext>
@@ -48,8 +48,14 @@
 		</Menu>
 
 		<TabControl Margin="4 8 4 4" Grid.Row="1">
+			<TabItem Header="Update Firmware">
+				<vw:FlashWizardView Margin="10" DataContext="{Binding FlashWizardVm}" />
+			</TabItem>
 			<TabItem Header="Connection">
 				<vw:ConnectionView Margin="10" DataContext="{Binding ConnectionVm}" />
+			</TabItem>
+			<TabItem Header="Bench">
+				<vw:BenchView Margin="10" DataContext="{Binding BenchVm}" />
 			</TabItem>
 			<TabItem Header="System">
 				<vw:SystemView Margin="10" />

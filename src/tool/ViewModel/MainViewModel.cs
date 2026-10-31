@@ -24,6 +24,10 @@ namespace BBSFW.ViewModel
 
 		public EventLogViewModel EventLogVm { get; private set; }
 
+		public FlashWizardViewModel FlashWizardVm { get; private set; }
+
+		public BenchViewModel BenchVm { get; private set; }
+
 
 
 		public ICommand OpenConfigCommand
@@ -77,6 +81,11 @@ namespace BBSFW.ViewModel
 			AssistLevelsVm = new AssistLevelsViewModel(ConfigVm);
 			CalibrationVm = new CalibrationViewModel(ConnectionVm);
 			EventLogVm = new EventLogViewModel();
+
+			var prompts = new WindowsUserPrompts();
+			FlashWizardVm = new FlashWizardViewModel(ConnectionVm, prompts);
+			FlashWizardVm.RefreshPorts();
+			BenchVm = new BenchViewModel(ConnectionVm, prompts);
 
 
 			ConnectionVm.EventLogReceived += EventLogVm.AddEvent;

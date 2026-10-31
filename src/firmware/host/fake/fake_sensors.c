@@ -8,6 +8,8 @@
 
 #include "sensors.h"
 
+#include <string.h>
+
 bool brake_is_activated() { return g_hw.brake; }
 bool shift_sensor_is_activated() { return g_hw.shift; }
 
@@ -26,11 +28,20 @@ int16_t temperature_contr_x100() { return g_hw.temperature_contr_x100; }
 int16_t temperature_motor_x100() { return g_hw.temperature_motor_x100; }
 
 
-// Unit tests feed effort.c edges directly (effort_add_edge); no queue here.
+// Hands out the edges a test queued in g_hw.pas_edges (most tests feed
+// effort.c directly with effort_add_edge() instead).
 uint8_t pas_read_edges(uint16_t* dst, uint8_t max, bool* overflow)
 {
-	(void)dst;
-	(void)max;
-	*overflow = false;
-	return 0;
+	uint8_t n = 0;
+	while (n < max && n < g_hw.pas_edge_count)
+	{
+		dst[n] = g_hw.pas_edges[n];
+		n++;
+	}
+	g_hw.pas_edge_count -= n;
+	memmove(g_hw.pas_edges, g_hw.pas_edges + n, g_hw.pas_edge_count * sizeof(uint16_t));
+
+	*overflow = g_hw.pas_edge_overflow;
+	g_hw.pas_edge_overflow = false;
+	return n;
 }

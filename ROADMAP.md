@@ -49,6 +49,14 @@ deliberate, reviewed change to a baseline.
 
 See [TUNING.md](TUNING.md) for switching the new settings on one at a time.
 
+### What 2.2 adds (tools)
+
+- **Update Firmware** tab: flashing from the config tool, with the matching firmware and stcgal
+  bundled. It backs up the settings, checks the chip, flashes, verifies, and restores the settings
+  if needed. The rider only switches the controller off and on when asked.
+- **Bench** tab: the laptop stands in for the display on a stand, with live data, CSV recording
+  and the pedal sensor steadiness check.
+
 ### What 2.1 adds (simulator, not yet ridden)
 
 **Effort sensing** from the cadence sensor alone: the firmware times every PAS edge (96 per
@@ -124,9 +132,12 @@ Fixes:
   message has 29 left.
 
 **4. Bench measurements.** Bike on the stand, config cable connected, results through the event log.
-- [ ] PAS signal shape: a diagnostic build that sends PAS edge timing to the WPF tool's event log
-  while the cranks are turned by hand. Pulse count, duty cycle, and whether PAS1/PAS2 form a usable
-  quadrature pair. This decides whether higher PAS resolution is possible.
+- [x] Tooling (2.2): the config tool's **Bench** tab replaces the display on the stand, with live
+  data and CSV recording. Its **pedal sensor check** records 6 crank turns of PAS edges and
+  reports the channel order, duty, and edge jitter against the controller's timing. The
+  **Update Firmware** tab flashes, backs up and restores settings in one go.
+- [ ] PAS signal shape on the real bike: run the pedal sensor check. It decides whether effort
+  sensing can work before riding it.
 - [ ] Motor response: commanded current against the actual current the motor controller reports
   (`motor_get_battery_current_x10`). The motor's own control chip has its own current loop, so if
   it adds a lot of lag, that limits what phase 3 can achieve.

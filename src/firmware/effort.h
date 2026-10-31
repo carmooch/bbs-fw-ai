@@ -51,4 +51,30 @@ bool effort_get_assist_power_w(uint16_t* power_w);
 // Magnet pattern learning progress, 0-100 (100 = learned).
 uint8_t effort_get_learned_percent();
 
+// --- bench testing (config tool's Bench page) ---
+
+// No learning until the controller is switched off: on a stand, with no
+// bike to push, the cranks wobble far more than on the road and would spoil
+// the pattern. The config tool's Bench page triggers this (status reads and
+// PAS captures).
+void effort_block_learning();
+
+// Forgets the learned pattern (in EEPROM too); learning starts over.
+bool effort_reset_pattern();
+
+// Records the raw PAS edges (as pas_read_edges() gives them) of the next
+// EFFORT_CAPTURE_EDGES edges, for the tool to check the sensor's steadiness.
+#define EFFORT_CAPTURE_EDGES		(EFFORT_EDGES_PER_REV * 6)
+
+#define EFFORT_CAPTURE_IDLE			0
+#define EFFORT_CAPTURE_RUNNING		1
+#define EFFORT_CAPTURE_DONE			2
+#define EFFORT_CAPTURE_OVERFLOW		3	// edges were lost: start again
+
+void effort_start_capture();
+
+// Copies up to n captured edges from index first into dst. Returns the
+// capture state; *count is how many edges have been captured so far.
+uint8_t effort_read_capture(uint16_t first, uint16_t* dst, uint8_t n, uint16_t* count) __reentrant;
+
 #endif

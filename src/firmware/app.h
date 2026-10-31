@@ -68,5 +68,6 @@ uint8_t app_get_assist_level();
 uint8_t app_get_lights();
 uint8_t app_get_status_code();
 uint8_t app_get_temperature();
+uint8_t app_get_throttle_percent();
 
 #endif

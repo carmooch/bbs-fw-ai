@@ -1,0 +1,10 @@
+title Bench: bike on a stand, pedalled at 63 rpm (virtual controller for the config tool)
+
+# Used with ride_sim --serial (see BUILDING.md): a real-time controller on a
+# pseudo-terminal for testing the config tool's code without the bike.
+bike pas_edge_error_deg 0.3
+at 0 gear 2.0
+at 2000 cadence 63 over 1000
+at 0 level 0
+
+end 600000

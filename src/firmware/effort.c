@@ -64,12 +64,31 @@ typedef char learn_revs_check[(LEARN_REVS % 100 == 0) ? 1 : -1];
 // back to the level's fixed current.
 #define ASSIST_HOLD_MS				5000
 
+// Averaging of the wobble: until its timing noise is worth about this many
+// watts, over at most this many quarter-revolution windows.
+#define NOISE_TARGET_W				12.0f
+#define MAX_AVERAGING				16.0f
+
 // Estimates are only trusted in this range.
 #define VALID_MIN_CADENCE_RPM		25
 #define VALID_MIN_SPEED_KPH			2
 
-// Pattern shares are a segment's part of one revolution, in 1/65536ths.
-#define SHARE_SCALE_SHIFT			16
+// Pattern shares are a segment's part of one revolution, in 1/2^20ths: fine
+// enough that averaging them (learning) isn't stopped by rounding. A segment
+// is at most a pulse (1/24 revolution), so a share fits 16 bits.
+#define SHARE_SCALE_SHIFT			20
+
+// Segments longer than this (0.4 s) count as standing still; it also keeps
+// the share arithmetic within 32 bits.
+#define MAX_SEGMENT_TICKS			4095
+
+// A pattern learned for at least this many revolutions is good enough to find
+// the crank's position with again, if it's lost before learning has finished.
+#define ALIGN_MIN_REVS				16
+
+// Rotations of the pattern tried per call of effort_process(): few, as each
+// costs about a millisecond.
+#define ALIGN_ROTATIONS_PER_STEP	3
 
 // cos/sin of twice each segment's nominal mid-angle, x1024 (generated):
 // mid-angle of segment q = (q + 0.5) * 360/96 degrees.
@@ -95,7 +114,7 @@ static const int16_t sin2_table[N] =
 // --- learned pattern, as stored ---
 typedef struct
 {
-	uint16_t shares[N];		// each segment's part of a revolution
+	uint16_t shares[N];		// each segment's part of a revolution (SHARE_SCALE_SHIFT)
 	float v2w;				// mean v^2 w while learning (m^2/s^2 rad/s)
 } learned_t;
 
@@ -103,6 +122,7 @@ static learned_t learned;
 static uint16_t learned_revs;
 static uint16_t revs_since_save;
 static bool save_pending;
+static bool learning_rev;		// this revolution's segments go into the pattern
 
 // --- edge tracking ---
 static uint8_t prev_state;
@@ -130,6 +150,7 @@ static uint8_t best_rot;
 static uint32_t best_err;
 static uint32_t err_total;
 static uint16_t snapshot[N];
+static uint8_t snapshot_count;	// segments of the current revolution in it
 
 // --- inputs and outputs ---
 static uint16_t wheel_rpm_x10;
@@ -148,6 +169,8 @@ static uint8_t capture_state;
 #endif
 static int32_t cos_sum;
 static int32_t sin_sum;
+static float wobble_re;		// the crank-speed wobble (relative, as a vector
+static float wobble_im;		// locked to the crank), averaged over windows
 
 
 static void reset_window()
@@ -159,6 +182,8 @@ static void reset_window()
 	im_sum = 0;
 	edges_since_estimate = 0;
 	history_count = 0;
+	learning_rev = false;
+	snapshot_count = 0;
 	valid = false;
 	rider_power_w = 0;
 	rider_torque_nm_x10 = 0;
@@ -166,7 +191,18 @@ static void reset_window()
 
 static void lose_alignment()
 {
-	aligned = false;
+	if (learned_revs < ALIGN_MIN_REVS)
+	{
+		// too little learned to find the position with: start learning again,
+		// with wherever the crank is now as the new frame
+		learned_revs = 0;
+		aligned = true;
+		offset = 0;
+	}
+	else
+	{
+		aligned = false;
+	}
 	aligning = false;
 	reset_window();
 }
@@ -254,7 +290,9 @@ static void window_add_speed(uint8_t i, uint8_t q, uint16_t spd) __reentrant
 
 static uint16_t share_of(uint16_t ticks, uint32_t sum)
 {
-	return (uint16_t)(((uint32_t)ticks << SHARE_SCALE_SHIFT) / sum);
+	// ticks <= MAX_SEGMENT_TICKS, so the shift fits 32 bits
+	uint32_t share = ((uint32_t)ticks << SHARE_SCALE_SHIFT) / sum;
+	return share > 0xffff ? 0xffff : (uint16_t)share;
 }
 
 // crank rpm x10 from the window's revolution time (100us ticks)
@@ -279,24 +317,27 @@ static float speed2_crank() __reentrant
 	return v * v * w;
 }
 
+// Learning is spread over the edges, a segment at a time: done all at once
+// per revolution it stalled the main loop (and with it the brake check) for
+// tens of milliseconds.
+static void learn_segment(uint8_t q, uint16_t ticks) __reentrant
+{
+	// the window is the revolution ending at this segment
+	uint16_t share = share_of(ticks, period_sum);
+	if (learned_revs == 0)
+	{
+		learned.shares[q] = share;
+	}
+	else
+	{
+		learned.shares[q] += (int16_t)(share - learned.shares[q]) / 32;
+	}
+}
+
 static void learn_revolution() __reentrant
 {
 	float v2w = speed2_crank();
 	learned.v2w = learned_revs == 0 ? v2w : learned.v2w + (v2w - learned.v2w) / 32;
-
-	for (uint8_t s = 0; s < N; ++s)
-	{
-		uint16_t share = share_of(period[s], period_sum);
-		uint8_t q = pattern_index(s);
-		if (learned_revs == 0)
-		{
-			learned.shares[q] = share;
-		}
-		else
-		{
-			learned.shares[q] = (uint16_t)((int32_t)learned.shares[q] + ((int32_t)share - (int32_t)learned.shares[q]) / 32);
-		}
-	}
 
 	if (learned_revs < 0xffff)
 	{
@@ -326,7 +367,7 @@ static bool learning_conditions() __reentrant
 // shape (all rotations alike) can't be misaligned in a way that matters.
 static void align_step() __reentrant
 {
-	for (uint8_t k = 0; k < 12 && align_rot < N; ++k, ++align_rot)
+	for (uint8_t k = 0; k < ALIGN_ROTATIONS_PER_STEP && align_rot < N; ++k, ++align_rot)
 	{
 		uint32_t err = 0;
 		for (uint8_t s = 0; s < N; ++s)
@@ -349,7 +390,8 @@ static void align_step() __reentrant
 		uint32_t mean_err = err_total / N;
 		aligning = false;
 
-		if (best_err * 2 <= mean_err || mean_err < (uint32_t)N * 3u)
+		// (a mean error under 3/65536 of a revolution per segment is "alike")
+		if (best_err * 2 <= mean_err || mean_err < (uint32_t)N * 48u)
 		{
 			offset = best_rot;
 			aligned = true;
@@ -362,8 +404,12 @@ static void estimate() __reentrant
 {
 	// speed trend: how the window's speed sum moved over half a revolution,
 	// and over the last quarter (to catch sudden changes as they start)
-	int32_t trend = (int32_t)(speed_sum - sum_history[1]);
-	int32_t recent = (int32_t)(speed_sum - sum_history[0]);
+	// (working values are static: on the stack they would take over half of it)
+	static int32_t trend, recent, mean, re, im;
+	static float scale, new_re, new_im, v2w, a, watts_per_wobble, noise, noise_w, k, d_re, d_im, ripple, abs_re, abs_im, power;
+
+	trend = (int32_t)(speed_sum - sum_history[1]);
+	recent = (int32_t)(speed_sum - sum_history[0]);
 	bool have_trend = history_count >= 2;
 	sum_history[1] = sum_history[0];
 	sum_history[0] = speed_sum;
@@ -396,9 +442,9 @@ static void estimate() __reentrant
 	}
 
 	// 2nd harmonic of segment speed, with the mean taken out exactly
-	int32_t mean = (int32_t)(speed_sum / N);
-	int32_t re = re_sum - ((mean * cos_sum) >> 6);
-	int32_t im = im_sum - ((mean * sin_sum) >> 6);
+	mean = (int32_t)(speed_sum / N);
+	re = re_sum - ((mean * cos_sum) >> 6);
+	im = im_sum - ((mean * sin_sum) >> 6);
 
 	// Speeding up or slowing down across the window leaks into the harmonic
 	// as if it were pedal wobble. For a linear trend with slope k per edge,
@@ -410,24 +456,62 @@ static void estimate() __reentrant
 	{
 		uint8_t q_last = pattern_index(seg_index);
 		uint8_t q0 = q_last == N - 1 ? 0 : q_last + 1;
-		float k = trend * (2.548f / 2048.0f);	// /2 for the mean, /1024 for the table scale
+		k = trend * (2.548f / 2048.0f);	// /2 for the mean, /1024 for the table scale
 		re -= (int32_t)(k * (sin2_table[q_last] + sin2_table[q0]));
 		im += (int32_t)(k * (cos2_table[q_last] + cos2_table[q0]));
 	}
 
-	if (re < 0) re = -re;
-	if (im < 0) im = -im;
+	// The wobble as a fraction of the mean speed (amplitude 2|X|/N, the sums
+	// being in speed x16 units).
+	scale = 2.0f / (16.0f * N * mean);
+	new_re = re * scale;
+	new_im = im * scale;
 
-	// |re, im| by alpha-max-plus-beta-min (within ~4%)
-	int32_t mag = re > im ? re + (im * 3) / 8 : im + (re * 3) / 8;
+	// Timing each edge to 100us puts noise on the wobble: about 4.5e-6 x rpm
+	// per window (measured in the host tests). Windows are averaged as vectors (the wobble keeps its angle
+	// on the crank, noise doesn't, so it averages away without reading high),
+	// over more windows the more the noise is worth in watts: none on a slow
+	// climb, a couple of revolutions at 20 km/h. A change well clear of the
+	// noise is the rider's, and followed at once.
+	v2w = speed2_crank();
+	a = g_config.effort_stroke_x100 / 100.0f;
+	watts_per_wobble = 2.0f * g_config.effort_mass_kg * v2w / a;
+	noise = 4.5e-6f * 0.1f * cadence;
+	{
+		noise_w = noise * watts_per_wobble;
+		k = noise_w * noise_w * (1.0f / (NOISE_TARGET_W * NOISE_TARGET_W));
+		d_re = new_re - wobble_re;
+		d_im = new_im - wobble_im;
+		if (d_re < 0) d_re = -d_re;
+		if (d_im < 0) d_im = -d_im;
 
-	// relative wobble: amplitude (2|X|/N, in speed x16 units) over mean speed
-	float ripple = (2.0f * mag / N) / (16.0f * mean);
+		if (!valid || k < 1.0f)
+		{
+			k = 1.0f;
+		}
+		else if (d_re + d_im > 6.0f * noise)
+		{
+			k = k > 2.0f ? 2.0f : k;
+		}
+		else if (k > MAX_AVERAGING)
+		{
+			k = MAX_AVERAGING;
+		}
+		wobble_re += (new_re - wobble_re) / k;
+		wobble_im += (new_im - wobble_im) / k;
+	}
 
-	float v2w = speed2_crank();
-	float a = g_config.effort_stroke_x100 / 100.0f;
+	// |wobble| by alpha-max-plus-beta-min (within ~4%)
 
-	float power = ripple * 2.0f * g_config.effort_mass_kg * v2w / a;
+	{
+		abs_re = wobble_re < 0 ? -wobble_re : wobble_re;
+		abs_im = wobble_im < 0 ? -wobble_im : wobble_im;
+		ripple = abs_re > abs_im ? abs_re + abs_im * 0.375f : abs_im + abs_re * 0.375f;
+	}
+
+
+
+	power = ripple * watts_per_wobble;
 	if (learned.v2w > 0)
 	{
 		power += LEARN_ASSUMED_RIDER_W * v2w / learned.v2w;
@@ -437,9 +521,7 @@ static void estimate() __reentrant
 		power = 2000.0f;
 	}
 
-	// light smoothing across quarter-revolution updates
-	uint16_t p = (uint16_t)power;
-	rider_power_w = valid ? (uint16_t)((rider_power_w + p) / 2) : p;
+	rider_power_w = (uint16_t)power;
 	rider_torque_nm_x10 = (uint16_t)(rider_power_w * 10.0f / (cadence * (3.14159f / 300.0f)));
 	valid = true;
 	held_power_w = rider_power_w;
@@ -484,7 +566,7 @@ static bool add_edge(uint16_t entry) __reentrant
 
 	seg_index = seg_index == N - 1 ? 0 : seg_index + 1;
 
-	if (ticks >= PAS_EDGE_TICKS_MASK)
+	if (ticks > MAX_SEGMENT_TICKS)
 	{
 		// first edge after the pedals stood still
 		reset_window();
@@ -508,8 +590,8 @@ static bool add_edge(uint16_t entry) __reentrant
 	// segment speed = its angle (learned share) over its time
 	if (aligned && learned_revs >= LEARN_REVS)
 	{
-		// share (~683) << 11 over ticks (>= ~40 at 150 rpm) stays within 16 bits
-		window_add_speed(seg_index, q, (uint16_t)(((uint32_t)learned.shares[q] << 11) / ticks));
+		// 224 x rpm whatever the segment's size: within 16 bits below 290 rpm
+		window_add_speed(seg_index, q, (uint16_t)(((uint32_t)learned.shares[q] << 7) / ticks));
 	}
 	else
 	{
@@ -522,27 +604,40 @@ static bool add_edge(uint16_t entry) __reentrant
 	}
 
 	// a full revolution is in the window
-	if (aligned && q == N - 1 && learning_conditions())
+	if (aligned)
 	{
-		learn_revolution();
-		if (learned_revs == LEARN_REVS)
+		if (learning_rev)
 		{
-			// just learned: the window was filled without the pattern
-			reset_window();
-			return false;
+			learn_segment(q, ticks);
+		}
+		if (q == N - 1)
+		{
+			if (learning_rev)
+			{
+				learn_revolution();
+				if (learned_revs == LEARN_REVS)
+				{
+					// just learned: the window was filled without the pattern
+					reset_window();
+					return false;
+				}
+			}
+			// decided once per revolution, for the whole of the next one
+			learning_rev = learning_conditions();
 		}
 	}
-
-	if (!aligned && !aligning && learned_revs >= LEARN_REVS)
+	else if (!aligning)
 	{
-		for (uint8_t s = 0; s < N; ++s)
+		// one revolution of shares, by sensor index, to match against the pattern
+		snapshot[seg_index] = share_of(ticks, period_sum);
+		if (++snapshot_count == N)
 		{
-			snapshot[s] = share_of(period[s], period_sum);
+			snapshot_count = 0;
+			aligning = true;
+			align_rot = 0;
+			best_err = 0xffffffff;
+			err_total = 0;
 		}
-		aligning = true;
-		align_rot = 0;
-		best_err = 0xffffffff;
-		err_total = 0;
 	}
 
 	if (aligned && learned_revs >= LEARN_REVS && ++edges_since_estimate >= N / 4)

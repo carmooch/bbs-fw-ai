@@ -71,6 +71,15 @@ end 8000
 python3 sim/plot.py compare.svg before.csv after.csv --from 5800 --to 6400
 ```
 
+### 8051 cross-check
+
+The unit tests run on a PC, where `int` is 32 bits and floating point is hardware. The controller
+has 16-bit `int` and SDCC's software floating point. `host/sim51/run.sh` closes that gap for
+`effort.c`: it compiles it with SDCC, runs it in the ucsim 8051 simulator (`s51`, package
+`sdcc-ucsim`) on a generated ride, and requires the same estimates as the PC build. It also times
+the slowest calls and fails if one would stall the main loop, where the brake is checked, for
+more than about 15 ms. CI runs it in the firmware job.
+
 ### Simulator limits
 
 The bike model is deliberately simple. Keep these in mind when reading results:

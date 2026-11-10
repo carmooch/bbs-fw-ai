@@ -20,6 +20,19 @@ jobs:
         working-directory: src/firmware
         run: make all TARGET_CONTROLLER=BBSHD
 
+      # effort.c as compiled for the controller, run in an 8051 simulator, must
+      # match the PC build the unit tests use, and must not stall the main loop
+      - name: 8051 cross-check
+        shell: bash   # with pipefail, so a failure isn't hidden by tee
+        run: |
+          sudo apt-get install -y sdcc-ucsim
+          {
+            echo '### 8051 cross-check'
+            echo '```'
+            src/firmware/host/sim51/run.sh
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Memory usage
         working-directory: src/firmware
         run: |

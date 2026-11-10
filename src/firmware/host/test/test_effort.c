@@ -157,9 +157,10 @@ static int test_effort_learns_while_cruising(void)
 	uint8_t half = effort_get_learned_percent();
 	ASSERT_TRUE(half >= 48 && half <= 50);
 
-	// no learning in a low gear or below 20 km/h
+	// no learning in a low gear or below 20 km/h (whether a revolution
+	// counts is decided at the end of the one before, so one more may)
 	ride(&c, 100, 60, 1.2, 150, -1);
-	ASSERT_EQ(half, effort_get_learned_percent());
+	ASSERT_TRUE(effort_get_learned_percent() <= half + 1);
 
 	ride(&c, 110, 80, 3.0, 150, -1);
 	ASSERT_EQ(100, effort_get_learned_percent());
@@ -416,6 +417,59 @@ static int test_effort_capture_records_raw_edges(void)
 	return 1;
 }
 
+static int test_effort_learning_survives_a_glitch(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 11, 0);
+
+	// a lost edge early on: too little is learned to find the crank with,
+	// so learning starts again rather than stopping for good
+	ride(&c, 8, 80, 3.0, 150, -1);
+	ride(&c, 1, 80, 3.0, 150, 10);
+	ride(&c, 60, 80, 3.0, 150, -1);
+	uint8_t early = effort_get_learned_percent();
+	ASSERT_TRUE(early >= 25 && early <= 31);
+
+	// a lost edge later: the crank is found again and learning carries on
+	ride(&c, 1, 80, 3.0, 150, 10);
+	ride(&c, 30, 80, 3.0, 150, -1);
+	ASSERT_TRUE(effort_get_learned_percent() >= early + 10);
+
+	ride(&c, 150, 80, 3.0, 150, -1);
+	ASSERT_EQ(100, effort_get_learned_percent());
+	uint16_t p = ride(&c, 10, 60, 1.2, 200, -1);
+	printf("  learned through two glitches: 200 W -> %u\n", p);
+	ASSERT_TRUE(p >= 180 && p <= 230);
+
+	return 1;
+}
+
+// Different sensors (magnet errors) must read alike. The pattern has to be an
+// average of many revolutions for that: one revolution's timing noise in it
+// scatters the readings from sensor to sensor.
+static int test_effort_reads_alike_on_different_sensors(void)
+{
+	int lowest = 1000, highest = 0;
+	for (unsigned seed = 20; seed < 32; ++seed)
+	{
+		crank_t c;
+		boot();
+		crank_init(&c, seed, 0);
+		// cadence drifts a little while learning, as it does on the road
+		ride_ramp(&c, 260, 77, 83, 3.0, 150, -1);
+		// a middle gear at 20 km/h, where the wobble is small and errors in
+		// the pattern show most
+		int p = ride_ramp(&c, 16, 74, 76, 2.0, 150, -1);
+		lowest = p < lowest ? p : lowest;
+		highest = p > highest ? p : highest;
+	}
+	printf("  12 sensors, 150 W at 20 km/h: %d to %d\n", lowest, highest);
+	ASSERT_TRUE(lowest >= 115 && highest <= 180);
+
+	return 1;
+}
+
 void test_effort_run(void)
 {
 	RUN_TEST(test_effort_learns_while_cruising);
@@ -429,4 +483,6 @@ void test_effort_run(void)
 	RUN_TEST(test_effort_no_learning_on_the_bench);
 	RUN_TEST(test_effort_reset_pattern_forgets_it);
 	RUN_TEST(test_effort_capture_records_raw_edges);
+	RUN_TEST(test_effort_learning_survives_a_glitch);
+	RUN_TEST(test_effort_reads_alike_on_different_sensors);
 }

@@ -69,6 +69,13 @@ typedef char learn_revs_check[(LEARN_REVS % 100 == 0) ? 1 : -1];
 #define NOISE_TARGET_W				12.0f
 #define MAX_AVERAGING				16.0f
 
+// Launch sensing: the time 4 segments (one pulse, exactly 15 degrees whatever
+// the sensor's duty and phase) take from a standing start, and for how long
+// the result stands in for the estimate.
+#define LAUNCH_SEGMENTS				4
+#define LAUNCH_HOLD_MS				2500
+#define LAUNCH_MAX_NM_X10			2500
+
 // Estimates are only trusted in this range.
 #define VALID_MIN_CADENCE_RPM		25
 #define VALID_MIN_SPEED_KPH			2
@@ -163,6 +170,15 @@ static bool valid;
 static uint16_t held_power_w;		// last valid estimate, for effort assist
 static uint32_t held_at_ms;
 
+// --- launch sensing ---
+static uint8_t launch_edges;		// forward edges of a standing start so far, 0 = none under way
+static uint16_t launch_ticks[2];		// the first two segments, the last two
+static uint16_t launch_shares[2];	// and their angles, when the pattern is known
+static uint16_t launch_nm_x10;
+static uint32_t launch_at_ms;		// 0 = no launch torque
+static uint32_t launch_edge_ms;		// the latest edge of a launch
+static uint16_t gear_x100;			// wheel turns per crank turn when last pedalling steadily
+
 // --- bench ---
 static bool learning_blocked;	// until power-off: not cleared by effort_init()
 #if HAS_PAS_EDGE_TIMING
@@ -222,6 +238,9 @@ void effort_init() __reentrant
 	save_pending = false;
 	revs_since_save = 0;
 	held_at_ms = 0;
+	launch_edges = 0;
+	launch_at_ms = 0;
+	gear_x100 = 0;
 
 	// the trig tables are rounded, so their sums aren't exactly 0: keep them
 	// so the mean can be taken out exactly (see estimate())
@@ -459,10 +478,10 @@ static void estimate() __reentrant
 
 	// The trend removal below is exact for a steady change of speed. Keep the
 	// last estimate while a sudden change (a gear change) is in the window, or
-	// the speed moves more than 5% in half a revolution (a hard launch).
+	// the speed moves more than 10% in half a revolution (a hard launch).
 	if (dirty_edges > 0 ||
-		(uint32_t)(trend < 0 ? -trend : trend) * 20u > speed_sum ||
-		(uint32_t)(recent < 0 ? -recent : recent) * 40u > speed_sum)
+		(uint32_t)(trend < 0 ? -trend : trend) * 10u > speed_sum ||
+		(uint32_t)(recent < 0 ? -recent : recent) * 20u > speed_sum)
 	{
 		return;
 	}
@@ -550,8 +569,54 @@ static void estimate() __reentrant
 	rider_power_w = (uint16_t)power;
 	rider_torque_nm_x10 = (uint16_t)(rider_power_w * 10.0f / (cadence * (3.14159f / 300.0f)));
 	valid = true;
+	launch_at_ms = 0;	// the estimate takes over from a launch
+
+	// the gear, for the next launch: wheel turns per crank turn
+	if (cadence > 0)
+	{
+		gear_x100 = (uint16_t)(((uint32_t)wheel_rpm_x10 * 100u) / cadence);
+	}
 	held_power_w = rider_power_w;
 	held_at_ms = system_ms();
+}
+
+// The crank's acceleration over the first pulse of a standing start, times
+// the bike's mass seen from the crank, m x (wheel radius x gear)^2.
+//
+// With the sensor's pattern known (learned, and the crank's position kept
+// since), the pulse's two halves have known angles a and b and took ta and
+// tb: acceleration = 2 (b/tb - a/ta) / (ta + tb), whatever speed it began at.
+// Without it, only the whole pulse's 15 degrees is known, and the start is
+// taken to be from rest: 2 x 15 degrees / t^2 (which reads high if the bike
+// was creeping).
+static void launch_measure()
+{
+	static float ta, tb, accel, lever, nm_x10;
+	uint16_t size_inch_x10 = EXPAND_U16(g_config.wheel_size_inch_x10_u16h, g_config.wheel_size_inch_x10_u16l);
+	// the gear the bike stopped in, or the low gear if it isn't known
+	uint16_t gear = gear_x100 > 0 ? gear_x100 : (uint16_t)g_config.gear_ratio_low_x10 * 10u;
+
+	ta = launch_ticks[0] * 1e-4f;
+	tb = launch_ticks[1] * 1e-4f;
+	if (aligned && learned_revs >= LEARN_REVS)
+	{
+		// shares are 1/2^20 of a revolution: x 2 pi / 2^20 radians
+		accel = 2.0f * 5.992e-6f * (launch_shares[1] / tb - launch_shares[0] / ta) / (ta + tb);
+	}
+	else
+	{
+		accel = 2.0f * 0.2618f / ((ta + tb) * (ta + tb));
+	}
+
+	lever = size_inch_x10 * 0.00127f * gear * 0.01f;	// metres of road per radian of crank
+	nm_x10 = g_config.effort_mass_kg * lever * lever * 10.0f * accel;
+
+	launch_nm_x10 = nm_x10 > LAUNCH_MAX_NM_X10 ? LAUNCH_MAX_NM_X10 : (nm_x10 > 0 ? (uint16_t)nm_x10 : 0);
+	launch_at_ms = system_ms();
+	if (launch_at_ms == 0)
+	{
+		launch_at_ms = 1;
+	}
 }
 
 // Returns true when an estimate is due (every quarter revolution).
@@ -578,12 +643,14 @@ static bool add_edge(uint16_t entry) __reentrant
 	if (!forward && !backward)
 	{
 		// a missed or spurious edge: the crank position is lost
+		launch_edges = 0;
 		lose_alignment();
 		return false;
 	}
 
 	if (backward)
 	{
+		launch_edges = 0;
 		// keep counting so the position stays known, but restart the window
 		seg_index = seg_index == 0 ? N - 1 : seg_index - 1;
 		reset_window();
@@ -594,9 +661,25 @@ static bool add_edge(uint16_t entry) __reentrant
 
 	if (ticks > MAX_SEGMENT_TICKS)
 	{
-		// first edge after the pedals stood still
+		// first edge after the pedals stood still; a launch if the bike stands too
+		launch_edges = wheel_rpm_x10 == 0 ? 1 : 0;
+		launch_ticks[0] = launch_ticks[1] = 0;
+		launch_shares[0] = launch_shares[1] = 0;
 		reset_window();
 		return false;
+	}
+
+	launch_edge_ms = system_ms();
+	if (launch_edges > 0)
+	{
+		uint8_t half = launch_edges > LAUNCH_SEGMENTS / 2 ? 1 : 0;
+		launch_ticks[half] += ticks;
+		launch_shares[half] += learned.shares[pattern_index(seg_index)];
+		if (++launch_edges > LAUNCH_SEGMENTS)
+		{
+			launch_edges = 0;
+			launch_measure();
+		}
 	}
 
 	// slide the oldest segment out (the same sensor index, one revolution ago)
@@ -772,6 +855,22 @@ bool effort_get_assist_power_w(uint16_t* power_w)
 		return true;
 	}
 	return false;
+}
+
+bool effort_get_launch_torque_nm_x10(uint16_t* nm_x10)
+{
+	if (launch_at_ms == 0)
+	{
+		return false;
+	}
+	// (no edge for 200 ms: the pedals have all but stopped, under 4 rpm)
+	if (system_ms() - launch_at_ms > LAUNCH_HOLD_MS || system_ms() - launch_edge_ms > 200)
+	{
+		launch_at_ms = 0;
+		return false;
+	}
+	*nm_x10 = launch_nm_x10;
+	return true;
 }
 
 uint16_t effort_get_rider_torque_nm_x10()

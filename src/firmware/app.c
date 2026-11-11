@@ -86,6 +86,7 @@ static bool lights_state = false;
 void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent);
 uint8_t compute_pas_power_current();
 uint8_t power_to_level_current(uint32_t power_w_x10);
+uint8_t launch_torque_to_level_current(uint16_t rider_nm_x10);
 uint8_t apply_gear_boost(uint8_t current);
 uint8_t apply_cadence_lock(uint8_t target_cadence);
 uint16_t ramp_interval_ms(uint8_t amps_per_second);
@@ -463,7 +464,18 @@ void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent)
 			start_delay_pulses = MIN(start_delay_pulses, g_config.pas_start_delay_pulses_rolling);
 		}
 
-		if (pas_is_pedaling_forwards() && pas_get_pulse_counter() > start_delay_pulses)
+		if (g_config.launch_sensing && !(assist_level_data.level.flags & ASSIST_FLAG_PAS_VARIABLE) &&
+			effort_get_launch_torque_nm_x10(&rider_w))
+		{
+			// launch sensing: from a standstill, as strong as the push-off, from
+			// 15 degrees of crank until the effort estimate or the level takes over
+			uint8_t current = launch_torque_to_level_current(rider_w);
+			if (current > *target_current)
+			{
+				*target_current = current;
+			}
+		}
+		else if (pas_is_pedaling_forwards() && pas_get_pulse_counter() > start_delay_pulses)
 		{
 			if (assist_level_data.level.flags & ASSIST_FLAG_PAS_VARIABLE)
 			{
@@ -530,6 +542,22 @@ uint8_t compute_pas_power_current()
 		((uint32_t)assist_level_data.ext.power_w_per_rpm_x10 * pas_get_cadence_rpm_x10()) / 10u;
 
 	return power_to_level_current(power_w_x10);
+}
+
+// Rider torque at the crank (Nm x10) -> percent of max current for a launch:
+// motor torque = the level's effort assist factor (1x without one) x the
+// rider's, capped at the level's target current. The BBSHD makes about 160 Nm
+// at the crank at 30 A, so 5.3 Nm per amp (an estimate, not measured here).
+#define MOTOR_NM_X10_PER_AMP	53
+
+uint8_t launch_torque_to_level_current(uint16_t rider_nm_x10)
+{
+	uint8_t factor_x10 = assist_level_data.effort_x10 > 0 ? assist_level_data.effort_x10 : 10;
+	uint32_t amps_x10 = ((uint32_t)rider_nm_x10 * factor_x10) / MOTOR_NM_X10_PER_AMP;
+	uint32_t percent = (amps_x10 * 10u) / g_config.max_current_amps;
+
+	return percent > assist_level_data.level.target_current_percent ?
+		assist_level_data.level.target_current_percent : (uint8_t)percent;
 }
 
 // Battery power (W x10) -> percent of max current at the battery's voltage,

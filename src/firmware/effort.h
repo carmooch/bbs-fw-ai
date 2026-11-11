@@ -51,6 +51,14 @@ bool effort_get_assist_power_w(uint16_t* power_w);
 // Magnet pattern learning progress, 0-100 (100 = learned).
 uint8_t effort_get_learned_percent();
 
+// Launch sensing: how hard the rider pushed off from a standstill, as torque
+// at the crank (Nm x10). The bike starts from rest with the motor off, so
+// how fast the cranks pick up over their first 15 degrees is the rider's
+// push alone: torque = bike mass seen from the crank x crank acceleration.
+// True from the 5th forward edge of a standing start until the estimate
+// above takes over, the pedals stop, or 2.5 s have passed.
+bool effort_get_launch_torque_nm_x10(uint16_t* nm_x10);
+
 // --- bench testing (config tool's Bench page) ---
 
 // No learning until the controller is switched off: on a stand, with no

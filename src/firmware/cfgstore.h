@@ -55,7 +55,7 @@
 #define LIGHTS_MODE_ALWAYS_ON			2
 #define LIGHTS_MODE_BRAKE_LIGHT			3
 
-#define CONFIG_VERSION					7
+#define CONFIG_VERSION					8
 #define PSTATE_VERSION					1
 
 
@@ -183,6 +183,12 @@ typedef struct
 	// effort assist per level: motor watts per estimated rider watt, x10.
 	// 0 = off (the level works as configured)
 	uint8_t assist_effort_x10[2][10];
+
+	// --- added in config version 8, see CONFIG_V7_SIZE ---
+
+	// launch sensing (effort.c): from a standstill, assist starts after 15
+	// degrees of crank, as strong as the push-off was. 0 = off
+	uint8_t launch_sensing;
 } config_t;
 
 // Size of a version 5 config: everything before the version 6 additions.
@@ -190,6 +196,9 @@ typedef struct
 
 // Size of a version 6 config: everything before the version 7 additions.
 #define CONFIG_V6_SIZE		221
+
+// Size of a version 7 config: everything before the version 8 additions.
+#define CONFIG_V7_SIZE		245
 
 typedef struct
 {

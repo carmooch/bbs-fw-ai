@@ -31,7 +31,7 @@
 
 
 // Must hold a whole config write: 4 header bytes + sizeof(config_t) + checksum.
-#define BUFFER_SIZE			250
+#define BUFFER_SIZE			255
 #define DISCARD_TIMEOUT_MS	50
 
 #define REQUEST_TYPE_READ						0x01

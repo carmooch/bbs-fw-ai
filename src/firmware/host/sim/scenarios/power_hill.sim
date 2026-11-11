@@ -16,6 +16,7 @@ at 21000 rider_w 250
 
 end 41000
 
-# ~200 W of motor at 100 W of rider (16%), ~260 W at 250 W (21%).
-expect 20000 current == 16
+# ~220 W from the battery at 100 W of rider (14%, at 63 rpm), ~330 W at
+# 250 W (21%, at 116 rpm).
+expect 20000 current == 14
 expect 40000 current == 21

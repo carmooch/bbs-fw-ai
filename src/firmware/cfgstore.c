@@ -40,6 +40,7 @@ static const uint8_t default_power_w_per_rpm_x10[] = { 10, 15, 20, 30, 40, 50, 6
 // The version 5 layout must be an exact prefix of the current one.
 typedef char config_v5_prefix_check[(offsetof(config_t, pas_stop_predictive) == CONFIG_V5_SIZE) ? 1 : -1];
 typedef char config_v6_prefix_check[(offsetof(config_t, display_range_field) == CONFIG_V6_SIZE) ? 1 : -1];
+typedef char config_v7_prefix_check[(offsetof(config_t, launch_sensing) == CONFIG_V7_SIZE) ? 1 : -1];
 
 #if HAS_TORQUE_SENSOR
 static const uint8_t default_torque_factors[] = { 10, 15, 23, 44, 57, 74, 88, 105, 126 };
@@ -65,6 +66,7 @@ static bool write_config();
 static void load_default_config();
 static void load_default_config_v6();
 static void load_default_config_v7();
+static void load_default_config_v8();
 
 static bool read_pstate();
 static bool write_pstate();
@@ -119,18 +121,22 @@ static bool read_config()
 
 	// Migrate an older config: each version's bytes are a prefix of the
 	// current layout, so read them in place, default the rest and save.
-	if (res == EEPROM_ERROR_VERSION && (header.version == 5 || header.version == 6))
+	if (res == EEPROM_ERROR_VERSION && header.version >= 5 && header.version <= 7)
 	{
 		uint8_t old_version = header.version;
 		res = read(EEPROM_CONFIG_PAGE, old_version, (uint8_t*)&g_config,
-			old_version == 5 ? CONFIG_V5_SIZE : CONFIG_V6_SIZE);
+			old_version == 5 ? CONFIG_V5_SIZE : (old_version == 6 ? CONFIG_V6_SIZE : CONFIG_V7_SIZE));
 		if (res == EEPROM_OK)
 		{
 			if (old_version == 5)
 			{
 				load_default_config_v6();
 			}
-			load_default_config_v7();
+			if (old_version <= 6)
+			{
+				load_default_config_v7();
+			}
+			load_default_config_v8();
 			write_config();
 		}
 	}
@@ -251,6 +257,7 @@ static void load_default_config()
 
 	load_default_config_v6();
 	load_default_config_v7();
+	load_default_config_v8();
 }
 
 static void load_default_config_v7()
@@ -262,6 +269,11 @@ static void load_default_config_v7()
 	g_config.effort_max_speed_kph = 25;
 
 	memset(&g_config.assist_effort_x10, 0, sizeof(g_config.assist_effort_x10));
+}
+
+static void load_default_config_v8()
+{
+	g_config.launch_sensing = 0;
 }
 
 bool cfgstore_read_effort_pattern(uint8_t* dst, uint8_t size)

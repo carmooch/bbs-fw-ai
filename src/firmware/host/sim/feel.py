@@ -36,6 +36,8 @@ config pas_keep_current_percent 100
 config level 3 flags 129
 config level 3 target_current_percent 60
 config level 3 effort_x10 15
+config launch_sensing 1
+config launch_ramp_amps_s 30
 {extra}
 at 0 level 0
 at 0 speed 32
@@ -44,7 +46,7 @@ at 0 grade -2
 at 0 rider_w 150
 at 190000 rider_w 0
 at 190000 brake 1
-at 196000 brake 0
+at 199000 brake 0
 """
 
 
@@ -85,15 +87,21 @@ at %d rider_w %d
     if onset:
         res["onset_ms"] = onset["t_ms"] - T0
         res["onset_deg"] = onset["crank_deg"] - start["crank_deg"]
-    # assist over the first 1.5 s of pushing
-    res["assist_w"] = mean(window(rows, T0, T0 + 1500), "battery_w")
-    res["peak_w"] = max(r["battery_w"] for r in window(rows, T0, T0 + 4000))
+    # Assist over the first 1.5 s of pushing, as motor current: from a
+    # standstill the motor's push is its torque, which goes with current, not
+    # with the battery power (that is next to nothing until the bike moves).
+    res["assist_a"] = mean(window(rows, T0, T0 + 1500), "current_a")
+    res["peak_a"] = max(r["current_a"] for r in window(rows, T0, T0 + 1500))
+    # what an ideal torque-sensor bike would add: ASSIST x the rider's crank
+    # torque (the simulator's push of force_w newtons at the wheel in gear
+    # 1.2), at the motor's 5.3 Nm per amp
+    res["ideal_a"] = ASSIST * force_w * (28 * 0.0254 / 2) * 1.2 / 5.3
     return res
 
 
-def steps(extra=""):
-    seg = 25000
-    rows = run("steps", """
+def steps_once(shift, extra=""):
+    seg = 25000 + shift
+    rows = run("steps_%d" % shift, """
 at %d grade 7
 at %d gear 1.6
 at %d level 3
@@ -117,12 +125,23 @@ at %d rider_w 0
     up_ms, up_from, up_to = settle(T0 + seg, T0 + 2 * seg, 150, 280)
     down_ms, down_from, down_to = settle(T0 + 2 * seg, T0 + 3 * seg, 280, 100)
     stop = next((r["t_ms"] - (T0 + 3 * seg) for r in rows if r["t_ms"] >= T0 + 3 * seg and r["current_pct"] == 0), None)
-    return {"up_ms": up_ms, "up_from_w": up_from, "up_to_w": up_to,
-            "down_ms": down_ms, "down_from_w": down_from, "down_to_w": down_to, "stop_ms": stop}
+    return {"up_ms": up_ms, "down_ms": down_ms, "stop_ms": stop}
+
+
+# Where in the pedal stroke a change lands matters, so each timing test is
+# run at several moments and averaged (a response that never comes counts as
+# 3 s).
+SHIFTS = [0, 170, 340, 510, 680, 850]
+
+
+def steps(extra=""):
+    runs = [steps_once(shift, extra) for shift in SHIFTS]
+    return {k: statistics.fmean(3000 if r[k] is None else r[k] for r in runs) for k in runs[0]}
 
 
 # (grade %, gear, rider W): steady states an effort bike should follow
-LOW = [(10, 1.0, 100), (12, 1.2, 250), (7, 1.6, 150), (8, 1.9, 250), (4, 2.2, 120), (5, 2.5, 200)]
+# (the first one has to be a hill the rider can start on from a standstill)
+LOW = [(7, 1.6, 150), (10, 1.0, 100), (12, 1.2, 250), (8, 1.9, 250), (4, 2.2, 120), (5, 2.5, 200)]
 HIGH = [(1.5, 3.0, 150), (2, 3.2, 220), (1, 3.4, 180)]
 
 
@@ -149,17 +168,24 @@ def steady(name, states, extra=""):
 
 
 def gear_change(extra=""):
-    rows = run("gear_change", """
+    runs = [gear_change_once(shift, extra) for shift in SHIFTS]
+    return {"spike": statistics.fmean(r for r in runs), "worst": max(runs)}
+
+
+def gear_change_once(shift, extra=""):
+    rows = run("gear_change_%d" % shift, """
 at %d grade 3
 at %d gear 1.8
 at %d level 3
 at %d rider_w 160
 at %d gear 2.2
-""" % (T0, T0, T0, T0, T0 + 25000), T0 + 40000, extra)
-    before = mean(window(rows, T0 + 17000, T0 + 25000), "battery_w")
-    peak = max(r["battery_w"] for r in window(rows, T0 + 25000, T0 + 29000))
-    low = min(r["battery_w"] for r in window(rows, T0 + 25000, T0 + 29000))
-    return {"before_w": before, "peak_w": peak, "low_w": low}
+""" % (T0, T0, T0, T0, T0 + 25000 + shift), T0 + 40000, extra)
+    t = T0 + 25000 + shift
+    before = mean(window(rows, t - 8000, t), "battery_w")
+    peak = max(r["battery_w"] for r in window(rows, t, t + 4000))
+    low = min(r["battery_w"] for r in window(rows, t, t + 4000))
+    # how far the assist jumps or sags around the shift, as a factor
+    return max(peak / before, before / max(low, 1)) if before > 0 else 9
 
 
 def ghost(extra=""):
@@ -210,9 +236,9 @@ def score(m):
     # A. launch (15): how soon assist comes, and whether a stomp gets more than a gentle push
     onset = max(x for x in (lg["onset_deg"], lh["onset_deg"]) if x is not None) if lg["onset_deg"] is not None and lh["onset_deg"] is not None else None
     s["A1 launch onset (crank deg)"] = (lin(onset, 20, 90, 7), 7, onset)
-    ratio = lh["assist_w"] / lg["assist_w"] if lg["assist_w"] > 0 else 0
+    ratio = lh["assist_a"] / lg["assist_a"] if lg["assist_a"] > 0 else 0
     s["A2 stomp gets more (hard/gentle assist)"] = (lin(ratio, 2.5, 1.0, 5), 5, ratio)
-    over = lg["peak_w"] / (ASSIST * 120)
+    over = lg["peak_a"] / lg["ideal_a"]
     s["A3 gentle launch isn't a surge (peak / ideal)"] = (lin(over, 2.0, 5.0, 3), 3, over)
 
     # B. effort tracking (20)
@@ -230,8 +256,7 @@ def score(m):
     # D. smoothness (10)
     ripple = statistics.fmean(x["ripple_pct"] for x in m["low"])
     s["D1 steady assist ripple (%)"] = (lin(ripple, 5, 25, 6), 6, ripple)
-    gc = m["gear_change"]
-    spike = max(gc["peak_w"] / gc["before_w"], gc["before_w"] / max(gc["low_w"], 1)) if gc["before_w"] > 0 else 9
+    spike = m["gear_change"]["spike"]
     s["D2 gear change spike or dip (x)"] = (lin(spike, 1.3, 2.5, 4), 4, spike)
 
     # E. ghost pedalling (5)

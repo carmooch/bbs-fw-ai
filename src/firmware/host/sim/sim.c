@@ -87,6 +87,7 @@ static const u8_field_t u8_fields[] =
 	U8(gear_boost_max_percent), U8(gear_ratio_low_x10), U8(gear_ratio_high_x10),
 	U8(cadence_lock_margin_rpm),
 	U8(display_range_field), U8(effort_mass_kg), U8(effort_stroke_x100), U8(effort_max_speed_kph),
+	U8(launch_sensing),
 };
 
 static const u16_field_t u16_fields[] =
@@ -359,7 +360,18 @@ static void physics_step(double dt_s, double battery_a, double volts)
 	rider_w *= 1 + bike.pedal_stroke * cos(4 * PI * bike.crank_revs);
 	double slope = atan(inputs[INPUT_GRADE].value / 100.0);
 
-	double force = (rider_w + bike.motor_w) / (v > v_min ? v : v_min)
+	// The motor makes torque in proportion to its current (about 5.3 Nm per
+	// amp at the crank), so at low speed its push is limited by torque, not
+	// by the battery power it could draw.
+	double motor_force = bike.motor_w / (v > v_min ? v : v_min);
+	double torque_limit = gear > 0 ? battery_a * 5.3 / (bike.wheel_circumference_m / (2 * PI) * gear) : 0;
+	if (motor_force > torque_limit)
+	{
+		motor_force = torque_limit;
+		bike.motor_w = motor_force * v;
+	}
+
+	double force = rider_w / (v > v_min ? v : v_min) + motor_force
 		- bike.mass_kg * g * (bike.crr * cos(slope) + sin(slope))
 		- 0.5 * rho * bike.cda_m2 * v * v;
 	if (inputs[INPUT_BRAKE].value != 0 && v > 0)

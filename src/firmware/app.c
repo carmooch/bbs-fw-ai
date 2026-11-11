@@ -485,6 +485,11 @@ void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent)
 					*target_current = current;
 				}
 			}
+			else if (assist_level_data.effort_x10 > 0 && effort_is_freewheeling())
+			{
+				// ghost pedalling: the legs aren't driving the bike, so, as on a
+				// torque-sensor bike, there's nothing to assist
+			}
 			else if (assist_level_data.effort_x10 > 0 && effort_get_assist_power_w(&rider_w))
 			{
 				// effort assist: motor power follows the rider's estimated power

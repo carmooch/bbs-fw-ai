@@ -28,6 +28,12 @@ void pas_set_stop_predictive(bool enabled);
 #define PAS_EDGE_PAS1			0x4000
 #define PAS_EDGE_PAS2			0x8000
 uint8_t pas_read_edges(uint16_t* dst, uint8_t max, bool* overflow);
+
+// True once per wheel sensor pulse, with the PAS edges (x16) since the pulse
+// before: 96 x 16 / (wheel turns per crank turn x sensor signals per turn)
+// while the cranks drive the wheel. Measured at the pulse itself, so it
+// doesn't lag when the bike speeds up or slows down.
+bool speed_sensor_read_pulse(uint16_t* pas_edges_x16);
 uint16_t pas_get_cadence_rpm_x10();
 uint16_t pas_get_pulse_counter();
 bool pas_is_pedaling_forwards();

@@ -92,6 +92,17 @@ static volatile uint8_t pas_edge_head;
 static volatile uint8_t pas_edge_tail;
 static volatile bool pas_edge_overflow;
 static uint16_t pas_edge_ticks;
+static uint16_t pas_edge_total;			// every edge, free running
+static uint16_t pas_last_segment_ticks;
+
+// Where the cranks were at each wheel sensor pulse, for counting PAS edges
+// per wheel pulse (the gear) without any lag between the two sensors.
+static volatile uint8_t wheel_pulse_seq;
+static volatile uint16_t wheel_latch_edges;
+static volatile uint16_t wheel_latch_ticks;
+static volatile uint16_t wheel_latch_segment;
+static uint8_t wheel_read_seq;
+static uint16_t wheel_read_x16;
 
 static volatile uint16_t speed_ticks_period_length; // pulse length counted in interrupt frequency (100us)
 static uint16_t speed_period_counter;
@@ -163,6 +174,11 @@ void sensors_init()
 	pas_edge_tail = 0;
 	pas_edge_overflow = false;
 	pas_edge_ticks = 0;
+	pas_edge_total = 0;
+	pas_last_segment_ticks = 0;
+	wheel_pulse_seq = 0;
+	wheel_read_seq = 0;
+	wheel_read_x16 = 0;
 	speed_period_counter = 0;
 	speed_ticks_period_length = 0;
 	speed_prev_state = false;
@@ -212,6 +228,40 @@ uint8_t pas_read_edges(uint16_t* dst, uint8_t max, bool* overflow)
 	ET0 = 1;
 
 	return n;
+}
+
+bool speed_sensor_read_pulse(uint16_t* pas_edges_x16)
+{
+	uint8_t seq;
+	uint16_t edges, ticks, segment, now_x16;
+
+	ET0 = 0; // disable timer0 interrupts
+	seq = wheel_pulse_seq;
+	edges = wheel_latch_edges;
+	ticks = wheel_latch_ticks;
+	segment = wheel_latch_segment;
+	ET0 = 1;
+
+	if (seq == wheel_read_seq)
+	{
+		return false;
+	}
+
+	// PAS edges so far in sixteenths: whole edges, plus how far into the next
+	// segment the cranks were, going by how long the last one took
+	now_x16 = edges << 4;
+	if (segment > 0)
+	{
+		uint16_t part = ticks >= segment ? 15 : (uint16_t)(((uint32_t)ticks << 4) / segment);
+		now_x16 += part;
+	}
+
+	// (a missed read spans two pulses: the caller sees twice the edges, as for
+	// a missed magnet)
+	*pas_edges_x16 = now_x16 - wheel_read_x16;
+	wheel_read_x16 = now_x16;
+	wheel_read_seq = seq;
+	return true;
 }
 
 uint16_t pas_get_cadence_rpm_x10()
@@ -433,6 +483,8 @@ void sensors_timer0_isr() // runs every 100us, see timers.c
 			{
 				pas_edge_overflow = true;
 			}
+			pas_edge_total++;
+			pas_last_segment_ticks = pas_edge_ticks;
 			pas_edge_ticks = 0;
 		}
 
@@ -518,6 +570,11 @@ void sensors_timer0_isr() // runs every 100us, see timers.c
 			}
 				
 			speed_period_counter = 0;
+
+			wheel_latch_edges = pas_edge_total;
+			wheel_latch_ticks = pas_edge_ticks;
+			wheel_latch_segment = pas_last_segment_ticks;
+			wheel_pulse_seq++;
 		}
 		else
 		{

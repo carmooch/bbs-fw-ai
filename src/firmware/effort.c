@@ -170,6 +170,17 @@ static bool valid;
 static uint16_t held_power_w;		// last valid estimate, for effort assist
 static uint32_t held_at_ms;
 
+// --- whether the cranks are driving the wheel (see effort_is_freewheeling) ---
+#define LOCK_DRIVING		0
+#define LOCK_PROBATION		1	// after a step in crank speed: a gear change, or the legs slowing?
+#define LOCK_FREE			2
+static uint8_t lock_state;
+static uint16_t lock_ref_x16;		// PAS edges per wheel pulse in the gear last driven in, 0 = not known
+static uint16_t lock_last_x16;
+static uint16_t lock_start_x16;		// at the start of probation, or of a steady run while free
+static uint16_t lock_start_wheel;	// wheel speed then
+static uint8_t lock_count;
+
 // --- launch sensing ---
 static uint8_t launch_edges;		// forward edges of a standing start so far, 0 = none under way
 static uint16_t launch_ticks[2];		// the first two segments, the last two
@@ -241,6 +252,10 @@ void effort_init() __reentrant
 	launch_edges = 0;
 	launch_at_ms = 0;
 	gear_x100 = 0;
+	lock_state = LOCK_DRIVING;
+	lock_ref_x16 = 0;
+	lock_last_x16 = 0;
+	lock_count = 0;
 
 	// the trig tables are rounded, so their sums aren't exactly 0: keep them
 	// so the mean can be taken out exactly (see estimate())
@@ -466,7 +481,7 @@ static void estimate() __reentrant
 	uint16_t min_wheel = kph_to_wheel_rpm_x10(VALID_MIN_SPEED_KPH);
 	uint16_t max_wheel = kph_to_wheel_rpm_x10(g_config.effort_max_speed_kph);
 
-	if (!have_trend || learned_revs < LEARN_REVS || cadence < VALID_MIN_CADENCE_RPM * 10u ||
+	if (!have_trend || lock_state == LOCK_FREE || learned_revs < LEARN_REVS || cadence < VALID_MIN_CADENCE_RPM * 10u ||
 		wheel_rpm_x10 < min_wheel || wheel_rpm_x10 > max_wheel ||
 		g_config.effort_stroke_x100 == 0)
 	{
@@ -617,6 +632,102 @@ static void launch_measure()
 	{
 		launch_at_ms = 1;
 	}
+}
+
+static bool within(uint16_t a, uint16_t b, uint8_t percent)
+{
+	uint16_t d = a > b ? a - b : b - a;
+	return (uint32_t)d * 100u <= (uint32_t)b * percent;
+}
+
+static void set_free()
+{
+	lock_state = LOCK_FREE;
+	lock_count = 0;
+	held_at_ms = 0;		// effort assist mustn't carry on with the last estimate
+	reset_window();
+}
+
+// With the cranks driving the wheel, the PAS edges per wheel pulse are the
+// gear: exactly constant, whatever the speed does, and changing only in a
+// step when the rider shifts. Legs turning slower than the chainring show as
+// a ratio that drifts, or that doesn't hold after a step.
+void effort_add_wheel_pulse(uint16_t e)
+{
+	// too few edges to tell: hardly pedalling (the estimate has no window then)
+	if (e < 16u * 8u)
+	{
+		lock_last_x16 = 0;
+		return;
+	}
+
+	switch (lock_state)
+	{
+	case LOCK_DRIVING:
+		if (lock_ref_x16 == 0 || within(e, lock_ref_x16, 4))
+		{
+			// (follows slow creep, such as the tyre's size settling)
+			lock_ref_x16 = lock_ref_x16 == 0 ? e : (uint16_t)(lock_ref_x16 + ((int16_t)(e - lock_ref_x16)) / 4);
+			lock_count = 0;
+		}
+		else if (dirty_edges > 0)
+		{
+			// the crank speed stepped: perhaps a gear change. This pulse spans
+			// the step (part old gear, part new), so the next one starts the test
+			lock_state = LOCK_PROBATION;
+			lock_count = 0;
+		}
+		else if (++lock_count >= 2)
+		{
+			// two pulses off the gear without a step (one alone may be a missed magnet)
+			set_free();
+		}
+		break;
+
+	case LOCK_PROBATION:
+		if (lock_count == 0)
+		{
+			lock_start_x16 = e;
+			lock_count = 1;
+		}
+		else if (!within(e, lock_start_x16, 3))
+		{
+			// it doesn't hold: no gear
+			set_free();
+		}
+		else if (++lock_count >= 4)
+		{
+			lock_state = LOCK_DRIVING;
+			lock_ref_x16 = e;
+			lock_count = 0;
+		}
+		break;
+
+	default:
+		// free: driving again once the cranks are back at the gear they left for
+		// two pulses, or hold a new ratio for four while the bike's speed moves
+		// (which a freewheeling crank wouldn't follow)
+		if (lock_last_x16 != 0 && within(e, lock_ref_x16, 3) && within(lock_last_x16, lock_ref_x16, 3))
+		{
+			lock_state = LOCK_DRIVING;
+			lock_count = 0;
+		}
+		else if (lock_count == 0 || !within(e, lock_start_x16, 2))
+		{
+			lock_start_x16 = e;
+			lock_start_wheel = wheel_rpm_x10;
+			lock_count = 1;
+		}
+		else if (++lock_count >= 5 && !within(wheel_rpm_x10, lock_start_wheel, 3))
+		{
+			lock_state = LOCK_DRIVING;
+			lock_ref_x16 = e;
+			lock_count = 0;
+		}
+		break;
+	}
+
+	lock_last_x16 = e;
 }
 
 // Returns true when an estimate is due (every quarter revolution).
@@ -791,7 +902,13 @@ void effort_process()
 	bool overflow = false;
 	uint8_t n;
 
+	uint16_t wheel_edges_x16;
+
 	effort_set_wheel_rpm_x10(speed_sensor_get_rpm_x10());
+	if (speed_sensor_read_pulse(&wheel_edges_x16))
+	{
+		effort_add_wheel_pulse(wheel_edges_x16);
+	}
 
 	do
 	{
@@ -835,6 +952,11 @@ void effort_process()
 bool effort_is_valid()
 {
 	return valid;
+}
+
+bool effort_is_freewheeling()
+{
+	return lock_state == LOCK_FREE;
 }
 
 uint16_t effort_get_rider_power_w()

@@ -51,6 +51,18 @@ bool effort_get_assist_power_w(uint16_t* power_w);
 // Magnet pattern learning progress, 0-100 (100 = learned).
 uint8_t effort_get_learned_percent();
 
+// Ghost pedalling: the cranks turning slower than the bike is turning the
+// chainring, so they freewheel and say nothing about effort (read anyway,
+// the legs' own unevenness looks like a huge effort). Found from the PAS
+// edges per wheel sensor pulse: with the cranks driving that is the gear,
+// and only changes in a step (a gear change). True from when it drifts until
+// the cranks have caught up with a gear again. No estimate while true.
+bool effort_is_freewheeling();
+
+// Feeds one wheel sensor pulse: PAS edges (x16) since the pulse before, as
+// speed_sensor_read_pulse() gives them. effort_process() calls it; tests may.
+void effort_add_wheel_pulse(uint16_t pas_edges_x16);
+
 // Launch sensing: how hard the rider pushed off from a standstill, as torque
 // at the crank (Nm x10). The bike starts from rest with the motor off, so
 // how fast the cranks pick up over their first 15 degrees is the rider's

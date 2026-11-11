@@ -45,3 +45,10 @@ uint8_t pas_read_edges(uint16_t* dst, uint8_t max, bool* overflow)
 	g_hw.pas_edge_overflow = false;
 	return n;
 }
+
+// Unit tests feed effort.c wheel pulses directly (effort_add_wheel_pulse).
+bool speed_sensor_read_pulse(uint16_t* pas_edges_x16)
+{
+	(void)pas_edges_x16;
+	return false;
+}

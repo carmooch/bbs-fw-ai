@@ -495,6 +495,99 @@ static int test_effort_reads_the_same_all_round_the_crank(void)
 	return 1;
 }
 
+// PAS edges (x16) per wheel pulse in a gear (one wheel magnet)
+static uint16_t gear_pulse(double gear)
+{
+	return (uint16_t)(96 * 16 / gear);
+}
+
+static int test_effort_spots_ghost_pedalling(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 12, 0);
+	learn(&c);
+
+	// driving in gear 1.2: the edges per wheel pulse are the gear
+	for (int i = 0; i < 6; ++i)
+	{
+		ride(&c, 1.2, 60, 1.2, 200, -1);
+		effort_add_wheel_pulse(gear_pulse(1.2));
+	}
+	ASSERT_TRUE(!effort_is_freewheeling());
+	ASSERT_TRUE(effort_is_valid());
+
+	// one pulse out of line (a missed wheel magnet) changes nothing
+	effort_add_wheel_pulse(2 * gear_pulse(1.2));
+	effort_add_wheel_pulse(gear_pulse(1.2));
+	ASSERT_TRUE(!effort_is_freewheeling());
+
+	// the legs slow down gradually while the bike rolls on: fewer edges per
+	// wheel pulse, with no step in crank speed
+	ride_ramp(&c, 2, 60, 52, 1.2, 0.001, -1);
+	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.2) * 0.92));
+	ASSERT_TRUE(!effort_is_freewheeling());
+	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.2) * 0.88));
+	ASSERT_TRUE(effort_is_freewheeling());
+
+	// no estimate while freewheeling, however the cranks wobble, and no
+	// carrying on with the last one
+	uint16_t held;
+	ride(&c, 4, 50, 1.2, 600, -1);
+	ASSERT_TRUE(!effort_is_valid());
+	ASSERT_EQ(0, effort_get_rider_power_w());
+	ASSERT_TRUE(!effort_get_assist_power_w(&held));
+
+	// the legs catch the gear again
+	effort_add_wheel_pulse(gear_pulse(1.2));
+	ASSERT_TRUE(effort_is_freewheeling());
+	effort_add_wheel_pulse(gear_pulse(1.2));
+	ASSERT_TRUE(!effort_is_freewheeling());
+	uint16_t p = ride(&c, 4, 60, 1.2, 200, -1);
+	printf("  driving again after ghost pedalling: 200 W -> %u\n", p);
+	ASSERT_TRUE(p >= 170 && p <= 230);
+
+	return 1;
+}
+
+static int test_effort_takes_a_gear_change_for_what_it_is(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 13, 0);
+	learn(&c);
+	for (int i = 0; i < 6; ++i)
+	{
+		ride(&c, 1.2, 60, 1.2, 200, -1);
+		effort_add_wheel_pulse(gear_pulse(1.2));
+	}
+
+	// shifting up at the same speed: the crank speed steps down, the wheel
+	// pulse that spans the shift is part one gear and part the other, and
+	// from then on the new gear holds
+	ride_ramp(&c, 0.25, 60, 45, 1.6, 200, -1);
+	effort_add_wheel_pulse((uint16_t)((gear_pulse(1.2) + gear_pulse(1.6)) / 2));
+	for (int i = 0; i < 5; ++i)
+	{
+		ride(&c, 0.75, 45, 1.6, 200, -1);
+		effort_add_wheel_pulse(gear_pulse(1.6));
+		ASSERT_TRUE(!effort_is_freewheeling());
+	}
+	uint16_t p = ride(&c, 4, 45, 1.6, 200, -1);
+	printf("  after a gear change: 200 W -> %u\n", p);
+	ASSERT_TRUE(effort_is_valid());
+	ASSERT_TRUE(p >= 165 && p <= 235);
+
+	// a step in crank speed that doesn't settle on a gear is no gear change
+	ride_ramp(&c, 0.25, 45, 35, 1.6, 0.001, -1);
+	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.6) * 0.85));
+	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.6) * 0.78));
+	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.6) * 0.72));
+	ASSERT_TRUE(effort_is_freewheeling());
+
+	return 1;
+}
+
 void test_effort_run(void)
 {
 	RUN_TEST(test_effort_learns_while_cruising);
@@ -511,4 +604,6 @@ void test_effort_run(void)
 	RUN_TEST(test_effort_learning_survives_a_glitch);
 	RUN_TEST(test_effort_reads_alike_on_different_sensors);
 	RUN_TEST(test_effort_reads_the_same_all_round_the_crank);
+	RUN_TEST(test_effort_spots_ghost_pedalling);
+	RUN_TEST(test_effort_takes_a_gear_change_for_what_it_is);
 }

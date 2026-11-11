@@ -122,7 +122,8 @@ static learned_t learned;
 static uint16_t learned_revs;
 static uint16_t revs_since_save;
 static bool save_pending;
-static bool learning_rev;		// this revolution's segments go into the pattern
+static bool learning_rev;		// this revolution's segments may go into the pattern
+static uint32_t learning_rev_period;	// the revolution time when it began
 
 // --- edge tracking ---
 static uint8_t prev_state;
@@ -139,6 +140,7 @@ static uint32_t speed_sum;
 static int32_t re_sum;
 static int32_t im_sum;
 static uint8_t window_count;
+static uint8_t dirty_edges;		// edges until a sudden change of speed has left the window
 static uint8_t edges_since_estimate;
 static uint32_t sum_history[2];	// speed_sum a quarter and half a revolution ago
 static uint8_t history_count;
@@ -149,7 +151,8 @@ static uint8_t align_rot;
 static uint8_t best_rot;
 static uint32_t best_err;
 static uint32_t err_total;
-static uint16_t snapshot[N];
+static uint16_t snapshot[N];	// one revolution's shares: by sensor index to find the
+								// crank with, by pattern index while learning
 static uint8_t snapshot_count;	// segments of the current revolution in it
 
 // --- inputs and outputs ---
@@ -176,6 +179,7 @@ static float wobble_im;		// locked to the crank), averaged over windows
 static void reset_window()
 {
 	window_count = 0;
+	dirty_edges = 0;
 	period_sum = 0;
 	speed_sum = 0;
 	re_sum = 0;
@@ -288,6 +292,25 @@ static void window_add_speed(uint8_t i, uint8_t q, uint16_t spd) __reentrant
 	im_sum += harmonic_term(spd, sin2_table[q]);
 }
 
+// A gear change steps the crank speed within a few edges, and a step in the
+// window reads as a huge wobble. Compares the last pulse (4 segments, 15
+// degrees) with the one before: the rider's wobble moves that by about 1%,
+// timing noise by about 1%, a gear change by 8% or more.
+static bool speed_stepped(uint8_t i) __reentrant
+{
+	uint16_t now = 0, before = 0;
+	uint8_t k;
+
+	for (k = 0; k < 8; ++k)
+	{
+		uint16_t spd = speed[i] >> 2;
+		if (k < 4) now += spd; else before += spd;
+		i = i == 0 ? N - 1 : i - 1;
+	}
+	// more than about 4.7%
+	return (now > before ? now - before : before - now) > (before >> 5) + (before >> 6);
+}
+
 static uint16_t share_of(uint16_t ticks, uint32_t sum)
 {
 	// ticks <= MAX_SEGMENT_TICKS, so the shift fits 32 bits
@@ -317,27 +340,29 @@ static float speed2_crank() __reentrant
 	return v * v * w;
 }
 
-// Learning is spread over the edges, a segment at a time: done all at once
-// per revolution it stalled the main loop (and with it the brake check) for
-// tens of milliseconds.
-static void learn_segment(uint8_t q, uint16_t ticks) __reentrant
-{
-	// the window is the revolution ending at this segment
-	uint16_t share = share_of(ticks, period_sum);
-	if (learned_revs == 0)
-	{
-		learned.shares[q] = share;
-	}
-	else
-	{
-		learned.shares[q] += (int16_t)(share - learned.shares[q]) / 32;
-	}
-}
-
+// Learning is spread over the edges: each segment's share goes into a
+// scratch copy as it's measured (done all at once per revolution, the
+// divisions stalled the main loop, and with it the brake check, for tens of
+// milliseconds). The revolution is only taken into the pattern if it turned
+// out steady: a gear change inside it would bend the pattern.
 static void learn_revolution() __reentrant
 {
 	float v2w = speed2_crank();
+	uint8_t q;
+
 	learned.v2w = learned_revs == 0 ? v2w : learned.v2w + (v2w - learned.v2w) / 32;
+
+	for (q = 0; q < N; ++q)
+	{
+		if (learned_revs == 0)
+		{
+			learned.shares[q] = snapshot[q];
+		}
+		else
+		{
+			learned.shares[q] += (int16_t)(snapshot[q] - learned.shares[q]) / 32;
+		}
+	}
 
 	if (learned_revs < 0xffff)
 	{
@@ -432,10 +457,11 @@ static void estimate() __reentrant
 		return;
 	}
 
-	// The trend removal below is exact for a steady change of speed; a gear
-	// change or a hard launch moves the speed more than 5% in half a
-	// revolution and not steadily: keep the last estimate until it settles.
-	if ((uint32_t)(trend < 0 ? -trend : trend) * 20u > speed_sum ||
+	// The trend removal below is exact for a steady change of speed. Keep the
+	// last estimate while a sudden change (a gear change) is in the window, or
+	// the speed moves more than 5% in half a revolution (a hard launch).
+	if (dirty_edges > 0 ||
+		(uint32_t)(trend < 0 ? -trend : trend) * 20u > speed_sum ||
 		(uint32_t)(recent < 0 ? -recent : recent) * 40u > speed_sum)
 	{
 		return;
@@ -592,6 +618,17 @@ static bool add_edge(uint16_t entry) __reentrant
 	{
 		// 224 x rpm whatever the segment's size: within 16 bits below 290 rpm
 		window_add_speed(seg_index, q, (uint16_t)(((uint32_t)learned.shares[q] << 7) / ticks));
+
+		if (dirty_edges > 0)
+		{
+			dirty_edges--;
+		}
+		if (window_count >= 8 && speed_stepped(seg_index))
+		{
+			// until the step and the pulse before it have left the window, and
+			// the sum from half a revolution earlier that the trend is taken from
+			dirty_edges = N + N / 2 + 8;
+		}
 	}
 	else
 	{
@@ -608,11 +645,17 @@ static bool add_edge(uint16_t entry) __reentrant
 	{
 		if (learning_rev)
 		{
-			learn_segment(q, ticks);
+			// the window is the revolution ending at this segment
+			snapshot[q] = share_of(ticks, period_sum);
 		}
 		if (q == N - 1)
 		{
-			if (learning_rev)
+			// steady: the revolution time moved less than 1% during it, and
+			// the conditions still hold at its end
+			uint32_t moved = period_sum > learning_rev_period ? period_sum - learning_rev_period : learning_rev_period - period_sum;
+			bool conditions = learning_conditions();
+
+			if (learning_rev && conditions && moved * 100u < period_sum)
 			{
 				learn_revolution();
 				if (learned_revs == LEARN_REVS)
@@ -622,8 +665,8 @@ static bool add_edge(uint16_t entry) __reentrant
 					return false;
 				}
 			}
-			// decided once per revolution, for the whole of the next one
-			learning_rev = learning_conditions();
+			learning_rev = conditions;
+			learning_rev_period = period_sum;
 		}
 	}
 	else if (!aligning)

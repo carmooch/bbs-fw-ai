@@ -374,7 +374,19 @@ static void physics_step(double dt_s, double battery_a, double volts)
 	}
 	bike.wheel_rps = v / bike.wheel_circumference_m;
 
-	inputs[INPUT_CADENCE].value = rider_w > 0 && gear > 0 ? bike.wheel_rps / gear * 60.0 : 0;
+	double locked_rpm = gear > 0 ? bike.wheel_rps / gear * 60.0 : 0;
+	if (inputs[INPUT_RIDER_W].value > 0)
+	{
+		inputs[INPUT_CADENCE].value = locked_rpm;
+	}
+	else
+	{
+		// Ghost pedalling: the cranks freewheel, carrying only the legs, whose
+		// own unevenness is far bigger than the bike's (taken as +/-3% here; a
+		// guess, nobody has measured it on this bike).
+		double spin = inputs[INPUT_SPIN].value * (1 + 0.03 * cos(4 * PI * bike.crank_revs));
+		inputs[INPUT_CADENCE].value = spin < locked_rpm ? spin : locked_rpm;
+	}
 }
 
 static void bike_step(double dt_s)

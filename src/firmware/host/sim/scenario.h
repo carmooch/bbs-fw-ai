@@ -17,7 +17,9 @@
 // Inputs:  cadence (crank rpm, negative = backwards), gear (wheel revs per
 //          crank rev), speed (km/h, sets the wheel speed instantly),
 //          throttle (%), brake (0/1), level (0-9, 10 = walk), voltage (V),
-//          rider_w (W), grade (%)
+//          rider_w (W), grade (%), spin (crank rpm while rider_w is 0 in a
+//          physics scenario: ghost pedalling, the legs turning without
+//          pushing, at most as fast as the bike is turning the chainring)
 //
 // Two modes: by default cadence is an input and the wheel follows it. Using
 // rider_w anywhere switches the scenario to physics: speed comes from rider
@@ -46,6 +48,7 @@ typedef enum
 	INPUT_VOLTAGE,
 	INPUT_RIDER_W,
 	INPUT_GRADE,
+	INPUT_SPIN,
 	INPUT_COUNT
 } input_t;
 

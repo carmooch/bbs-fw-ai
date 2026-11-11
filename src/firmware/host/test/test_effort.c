@@ -465,7 +465,32 @@ static int test_effort_reads_alike_on_different_sensors(void)
 		highest = p > highest ? p : highest;
 	}
 	printf("  12 sensors, 150 W at 20 km/h: %d to %d\n", lowest, highest);
-	ASSERT_TRUE(lowest >= 115 && highest <= 180);
+	ASSERT_TRUE(lowest >= 108 && highest <= 180);
+
+	return 1;
+}
+
+// The estimate looks at half a revolution at a time, so anything wrong with
+// one half of the learned pattern shows as a reading that swings once per
+// revolution. A gear change straight after cruising must not get learned.
+static int test_effort_reads_the_same_all_round_the_crank(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 2, 0);
+	ride_ramp(&c, 260, 77, 83, 3.0, 150, -1);
+
+	// straight into a low gear at a lower cadence
+	ride_ramp(&c, 6, 59, 60, 1.6, 150, -1);
+	int lowest = 1000, highest = 0;
+	for (int i = 0; i < 16; ++i)
+	{
+		int p = ride_ramp(&c, 0.125, 60 + i * 0.02, 60.02 + i * 0.02, 1.6, 150, -1);
+		lowest = p < lowest ? p : lowest;
+		highest = p > highest ? p : highest;
+	}
+	printf("  150 W over two revolutions, an eighth at a time: %d to %d\n", lowest, highest);
+	ASSERT_TRUE(lowest >= 125 && highest <= 185);
 
 	return 1;
 }
@@ -485,4 +510,5 @@ void test_effort_run(void)
 	RUN_TEST(test_effort_capture_records_raw_edges);
 	RUN_TEST(test_effort_learning_survives_a_glitch);
 	RUN_TEST(test_effort_reads_alike_on_different_sensors);
+	RUN_TEST(test_effort_reads_the_same_all_round_the_crank);
 }

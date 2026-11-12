@@ -612,9 +612,9 @@ static void estimate() __reentrant
 // With the sensor's pattern known (learned, and the crank's position kept
 // since), the pulse's two halves have known angles a and b and took ta and
 // tb: acceleration = 2 (b/tb - a/ta) / (ta + tb), whatever speed it began at.
-// Without it, only the whole pulse's 15 degrees is known, and the start is
-// taken to be from rest: 2 x 15 degrees / t^2 (which reads high if the bike
-// was creeping).
+// Without it, only whole pulses are known to be 15 degrees, so two are timed
+// (the crank has already moved, and is moving, by the first edge, so "from
+// rest" can't be assumed): acceleration = 2 x 15 degrees (1/tb - 1/ta) / (ta + tb).
 static void launch_measure() __reentrant
 {
 	static float ta, tb, accel, lever, nm_x10;
@@ -631,7 +631,7 @@ static void launch_measure() __reentrant
 	}
 	else
 	{
-		accel = 2.0f * 0.2618f / ((ta + tb) * (ta + tb));
+		accel = 2.0f * 0.2618f * (1.0f / tb - 1.0f / ta) / (ta + tb);
 	}
 
 	lever = size_inch_x10 * 0.00127f * gear * 0.01f;	// metres of road per radian of crank
@@ -809,10 +809,12 @@ static bool add_edge(uint16_t entry) __reentrant
 	launch_edge_ms = system_ms();
 	if (launch_edges > 0)
 	{
-		uint8_t half = launch_edges > LAUNCH_SEGMENTS / 2 ? 1 : 0;
+		// half a pulse each with the pattern known, else a whole pulse each
+		uint8_t segments = aligned && learned_revs >= LEARN_REVS ? LAUNCH_SEGMENTS : 2 * LAUNCH_SEGMENTS;
+		uint8_t half = launch_edges > segments / 2 ? 1 : 0;
 		launch_ticks[half] += ticks;
 		launch_shares[half] += learned.shares[pattern_index(seg_index)];
-		if (++launch_edges > LAUNCH_SEGMENTS)
+		if (++launch_edges > segments)
 		{
 			launch_edges = 0;
 			launch_measure();

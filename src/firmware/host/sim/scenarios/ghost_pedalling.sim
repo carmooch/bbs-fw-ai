@@ -1,0 +1,41 @@
+title Ghost pedalling: driving at 160 W on effort level 3, then spinning the cranks without pushing (physics)
+
+# On a torque-sensor bike, legs turning without pushing get no assist. With
+# a cadence sensor, legs spinning slower than the chainring (the freewheel
+# turning) look like pedalling. The wheel sensor gives the gear (PAS edges
+# per wheel turn) while the cranks drive; drifting off it means the legs
+# are freewheeling, and effort assist gives nothing.
+bike pedal_stroke 0.8
+bike pas_edge_error_deg 0.3
+config level 3 effort_x10 15
+config level 3 target_current_percent 60
+
+at 0 level 0
+at 0 speed 32
+at 0 gear 3.0
+at 0 grade -2
+at 0 rider_w 150
+at 190000 rider_w 0
+at 190000 brake 1
+at 199000 brake 0
+
+at 200000 grade 2
+at 200000 gear 1.6
+at 200000 level 3
+at 200000 rider_w 160
+# stop pushing, keep turning the cranks at 45 rpm, slower than the chainring
+at 220000 rider_w 0
+at 220000 spin 45
+# push again
+at 230000 spin 0
+at 230000 rider_w 160
+
+end 245000
+
+# driving: effort assist (1.5x the estimate)
+expect 219000 current >= 10
+# spinning slower than the bike: nothing, from ~1.5 s in
+expect 222500 current == 0
+expect 229500 current == 0
+# pushing again: assist back within ~3 s
+expect 233000 current >= 10

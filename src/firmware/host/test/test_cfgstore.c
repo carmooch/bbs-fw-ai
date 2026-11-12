@@ -147,7 +147,37 @@ static int test_cfgstore_migrates_version_6_config(void)
 		for (int l = 0; l < 10; ++l)
 			ASSERT_EQ(0, g_config.assist_effort_x10[m][l]);
 
-	// ...and it's saved back as version 7
+	// ...and it's saved back as the current version
+	ASSERT_EQ(CONFIG_VERSION, g_hw.eeprom[0][0]);
+	ASSERT_EQ(sizeof(config_t), g_hw.eeprom[0][1]);
+
+	return 1;
+}
+
+static int test_cfgstore_migrates_version_7_config(void)
+{
+	fake_hw_reset();
+	cfgstore_init();
+
+	// version 7 settings, different from the defaults
+	g_config.max_current_amps = 33;
+	g_config.display_range_field = 3;
+	g_config.effort_mass_kg = 95;
+	g_config.assist_effort_x10[0][3] = 15;
+	config_t v7 = g_config;
+
+	fake_hw_reset();
+	store_old_config(&v7, 7, CONFIG_V7_SIZE);
+	cfgstore_init();
+
+	// version 7 settings survive, version 8's launch sensing is off...
+	ASSERT_EQ(33, g_config.max_current_amps);
+	ASSERT_EQ(3, g_config.display_range_field);
+	ASSERT_EQ(95, g_config.effort_mass_kg);
+	ASSERT_EQ(15, g_config.assist_effort_x10[0][3]);
+	ASSERT_EQ(0, g_config.launch_sensing);
+
+	// ...and it's saved back as version 8
 	ASSERT_EQ(CONFIG_VERSION, g_hw.eeprom[0][0]);
 	ASSERT_EQ(sizeof(config_t), g_hw.eeprom[0][1]);
 
@@ -203,6 +233,7 @@ void test_cfgstore_run(void)
 {
 	RUN_TEST(test_cfgstore_migrates_version_5_config);
 	RUN_TEST(test_cfgstore_migrates_version_6_config);
+	RUN_TEST(test_cfgstore_migrates_version_7_config);
 	RUN_TEST(test_cfgstore_effort_pattern_round_trips_beside_config);
 	RUN_TEST(test_cfgstore_corrupt_version_5_config_falls_back_to_defaults);
 	RUN_TEST(test_cfgstore_loads_defaults_on_erased_eeprom);

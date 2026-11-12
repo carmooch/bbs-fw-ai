@@ -652,6 +652,122 @@ static int test_effort_lets_go_of_a_step_it_cant_explain(void)
 	return 1;
 }
 
+// A standing start: crank torque T (Nm) accelerates the bike (no motor yet)
+// from rest in a gear, for some revolutions; the speed sensor reads 0 until
+// the wheel has turned. Returns the launch torque the estimate gives, or -1.
+static int launch(crank_t* c, double revs, double T, double gear)
+{
+	const double m = 110, dt = 1e-5, lever = 28.0 * 0.0254 / 2 * gear;
+	double accel = T / (m * lever * lever), w = 0;
+	double end_deg = c->phi_deg + revs * 360;
+
+	g_hw.wheel_rpm_x10 = 0;
+	effort_set_wheel_rpm_x10(0);
+	c->last_tick = (long)ceil(c->t / 1e-4) - 30000;	// the pedals stood
+	while (c->phi_deg < end_deg)
+	{
+		double phi = fmod(c->phi_deg, 360.0);
+		w += accel * dt;
+		c->phi_deg += w * 180 / PI * dt;
+		c->t += dt;
+		double rel = fmod(c->phi_deg, 360.0);
+		if (c->next_edge == 0 ? (rel < phi) : (rel >= c->edge_deg[c->next_edge]))
+		{
+			long tick = (long)ceil(c->t / 1e-4);
+			long ticks = tick - c->last_tick;
+			effort_add_edge((uint16_t)(ticks > PAS_EDGE_TICKS_MASK ? PAS_EDGE_TICKS_MASK : ticks) | state_bits(c->next_edge));
+			c->last_tick = tick;
+			c->next_edge = (c->next_edge + 1) % EDGES;
+		}
+		uint32_t ms = (uint32_t)(c->t * 1000);
+		if (ms >= c->now_ms + 5)
+		{
+			c->now_ms = ms;
+			g_hw.now_ms = 1000 + ms;
+		}
+	}
+	uint16_t nm_x10;
+	return effort_get_launch_torque_nm_x10(&nm_x10) ? nm_x10 : -1;
+}
+
+// stand still for a while: the speed sensor times out, the pedals stop
+static void stand(crank_t* c, double seconds)
+{
+	c->t += seconds;
+	c->now_ms = (uint32_t)(c->t * 1000);
+	g_hw.now_ms = 1000 + c->now_ms;
+	g_hw.wheel_rpm_x10 = 0;
+	effort_set_wheel_rpm_x10(0);
+	effort_process();
+}
+
+static int test_effort_senses_how_hard_a_launch_is(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 15, 0);
+	learn(&c);
+	ride(&c, 8, 60, 1.6, 200, -1);	// the gear it stops in
+	stand(&c, 2);
+
+	int gentle = launch(&c, 0.2, 15, 1.6);
+	stand(&c, 2);
+	int hard = launch(&c, 0.2, 45, 1.6);
+	printf("  launch, learned pattern: 15 Nm -> %d, 45 Nm -> %d (Nm x10)\n", gentle, hard);
+	ASSERT_TRUE(gentle >= 135 && gentle <= 165);
+	ASSERT_TRUE(hard >= 405 && hard <= 495);
+
+	// the launch figure goes once the pedals stop (200 ms without an edge)
+	uint16_t nm_x10;
+	stand(&c, 0.3);
+	ASSERT_TRUE(!effort_get_launch_torque_nm_x10(&nm_x10));
+
+	return 1;
+}
+
+static int test_effort_senses_a_launch_before_anything_is_learned(void)
+{
+	// no pattern yet: two whole pulses (15 degrees each) timed, in the
+	// configured low gear (the gear it stopped in isn't known); wherever in a
+	// pulse the pedals stood
+	for (int stop = 0; stop < 6; ++stop)
+	{
+		crank_t c;
+		boot();
+		g_config.gear_ratio_low_x10 = 16;
+		crank_init(&c, 16, 0);
+		ride(&c, 1.5 + stop * 2.5 / 360, 60, 1.6, 100, -1);
+		stand(&c, 2);
+
+		int gentle = launch(&c, 0.2, 15, 1.6);
+		stand(&c, 2);
+		int hard = launch(&c, 0.2, 45, 1.6);
+		printf("  launch, nothing learned, stopped %.1f deg on: 15 Nm -> %d, 45 Nm -> %d (Nm x10)\n", stop * 2.5, gentle, hard);
+		ASSERT_TRUE(gentle >= 115 && gentle <= 190);
+		ASSERT_TRUE(hard >= 345 && hard <= 560);
+	}
+
+	return 1;
+}
+
+static int test_effort_no_launch_when_rolling(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 17, 0);
+	learn(&c);
+
+	// pedals still, bike rolling (the speed sensor sees it): no launch
+	stand(&c, 2);
+	g_hw.wheel_rpm_x10 = 600;
+	c.last_tick = (long)ceil(c.t / 1e-4) - 30000;
+	ride(&c, 0.2, 60, 1.2, 200, -1);
+	uint16_t nm_x10;
+	ASSERT_TRUE(!effort_get_launch_torque_nm_x10(&nm_x10));
+
+	return 1;
+}
+
 void test_effort_run(void)
 {
 	RUN_TEST(test_effort_learns_while_cruising);
@@ -671,4 +787,7 @@ void test_effort_run(void)
 	RUN_TEST(test_effort_spots_ghost_pedalling);
 	RUN_TEST(test_effort_takes_a_gear_change_for_what_it_is);
 	RUN_TEST(test_effort_lets_go_of_a_step_it_cant_explain);
+	RUN_TEST(test_effort_senses_how_hard_a_launch_is);
+	RUN_TEST(test_effort_senses_a_launch_before_anything_is_learned);
+	RUN_TEST(test_effort_no_launch_when_rolling);
 }

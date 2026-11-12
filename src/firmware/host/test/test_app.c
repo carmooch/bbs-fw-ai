@@ -3,6 +3,8 @@
 #include "app.h"
 #include "cfgstore.h"
 #include "throttle.h"
+#include "effort.h"
+#include "sensors.h"
 
 // main.c runs app_process() every 5ms.
 #define APP_TICK_MS 5
@@ -14,6 +16,7 @@ static void boot(void)
 	fake_hw_reset();
 	cfgstore_init();
 	throttle_init(1000, 3600);
+	effort_init();
 	app_init();
 }
 
@@ -38,6 +41,123 @@ static void stop_pedalling(void)
 	g_hw.pas_forwards = false;
 	g_hw.pas_cadence_rpm_x10 = 0;
 	g_hw.pas_pulse_counter = 0;
+}
+
+// A standing start as the PAS sensor sees it: a long gap, then forward edges
+// (PAS1 rise, both, PAS2, neither) every ticks_per_edge 100us ticks, the
+// bike standing until then.
+static uint8_t launch_state;
+static void launch_edges(int n, uint16_t ticks_per_edge, bool first)
+{
+	static const uint16_t bits[4] = { PAS_EDGE_PAS1, PAS_EDGE_PAS1 | PAS_EDGE_PAS2, PAS_EDGE_PAS2, 0 };
+	effort_set_wheel_rpm_x10(0);
+	if (first)
+	{
+		effort_add_edge(bits[3]);	// where the pedals stood
+		effort_add_edge(PAS_EDGE_TICKS_MASK | bits[0]);
+		launch_state = 1;
+	}
+	for (int i = 0; i < n; ++i)
+	{
+		g_hw.now_ms += ticks_per_edge / 10;
+		effort_add_edge(ticks_per_edge | bits[launch_state++ & 3]);
+	}
+}
+
+static int test_app_launch_sensing_starts_assist_capped_by_the_level(void)
+{
+	boot();
+	g_config.launch_sensing = 1;
+	g_config.assist_effort_x10[0][3] = 15;
+	g_config.assist_levels[0][3].target_current_percent = 20;
+	app_set_assist_level(0);	// (level 3 is already set: switch to reload its settings)
+	app_set_assist_level(3);
+	run_ms(100);
+
+	// a hard push from a standstill: the pedal pulse count hasn't reached the
+	// start delay, so plain PAS wouldn't help yet
+	g_hw.pas_forwards = true;
+	g_hw.pas_pulse_counter = 1;
+	launch_edges(4, 300, true);	// two pulses, the second quicker: speeding up
+	launch_edges(4, 200, false);
+	ASSERT_EQ(0, g_hw.motor_target_current);
+	for (int i = 0; i < 12; ++i)
+	{
+		launch_edges(1, 200, false);
+		run_ms(50);
+	}
+	ASSERT_TRUE(g_hw.motor_target_current > 0);
+
+	// keeps pushing hard: up to the level's cap and no further
+	for (int i = 0; i < 20; ++i)
+	{
+		launch_edges(1, 200, false);
+		run_ms(50);
+	}
+	ASSERT_EQ(20, g_hw.motor_target_current);
+
+	return 1;
+}
+
+static int test_app_no_launch_sensing_unless_switched_on(void)
+{
+	boot();
+	g_config.assist_effort_x10[0][3] = 15;
+	app_set_assist_level(0);	// (level 3 is already set: switch to reload its settings)
+	app_set_assist_level(3);
+	run_ms(100);
+
+	g_hw.pas_forwards = true;
+	g_hw.pas_pulse_counter = 1;
+	launch_edges(4, 300, true);
+	launch_edges(4, 200, false);
+	for (int i = 0; i < 12; ++i)
+	{
+		launch_edges(1, 200, false);
+		run_ms(50);
+	}
+	ASSERT_EQ(0, g_hw.motor_target_current);
+
+	return 1;
+}
+
+// the wheel sensor shows the cranks drifting off the gear: freewheeling legs
+static void make_freewheeling(void)
+{
+	effort_add_wheel_pulse(960);
+	effort_add_wheel_pulse(960);
+	effort_add_wheel_pulse(700);
+	effort_add_wheel_pulse(690);
+}
+
+static int test_app_no_effort_assist_for_freewheeling_legs(void)
+{
+	boot();
+	g_config.assist_effort_x10[0][3] = 15;
+	app_set_assist_level(0);
+	app_set_assist_level(3);
+	make_freewheeling();
+	ASSERT_TRUE(effort_is_freewheeling());
+
+	pedal(60);
+	run_ms(1500);
+	ASSERT_EQ(0, g_hw.motor_target_current);
+
+	return 1;
+}
+
+static int test_app_freewheeling_leaves_other_levels_alone(void)
+{
+	boot();
+	app_set_assist_level(3);	// no effort assist on it: plain PAS, 14%
+	make_freewheeling();
+	ASSERT_TRUE(effort_is_freewheeling());
+
+	pedal(60);
+	run_ms(1500);
+	ASSERT_EQ(14, g_hw.motor_target_current);
+
+	return 1;
 }
 
 static int test_app_no_power_when_parked(void)
@@ -186,4 +306,8 @@ void test_app_run(void)
 	RUN_TEST(test_app_pas_ramps_up_to_level_current);
 	RUN_TEST(test_app_power_drops_when_pedalling_stops);
 	RUN_TEST(test_app_brake_cuts_power_immediately);
+	RUN_TEST(test_app_launch_sensing_starts_assist_capped_by_the_level);
+	RUN_TEST(test_app_no_launch_sensing_unless_switched_on);
+	RUN_TEST(test_app_no_effort_assist_for_freewheeling_legs);
+	RUN_TEST(test_app_freewheeling_leaves_other_levels_alone);
 }

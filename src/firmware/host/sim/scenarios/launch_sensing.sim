@@ -1,0 +1,42 @@
+title Launch sensing: a gentle and a hard push-off from a standstill, effort level 3 (physics)
+
+# Launch sensing (off by default) reads the rider's push from how fast the
+# cranks speed up over the first pedal pulse(s) from a standstill, and gives
+# assist in proportion, before the PAS start delay would. The pattern is
+# learned cruising first, as in effort_assist.sim.
+bike pedal_stroke 0.8
+bike pas_edge_error_deg 0.3
+config launch_sensing 1
+config level 3 effort_x10 15
+config level 3 target_current_percent 60
+
+at 0 level 0
+at 0 speed 32
+at 0 gear 3.0
+at 0 grade -2
+at 0 rider_w 150
+at 190000 rider_w 0
+at 190000 brake 1
+at 199000 brake 0
+
+# gentle push-off in gear 1.2, on the flat
+at 199000 grade 0
+at 199000 gear 1.2
+at 199000 level 3
+at 200000 rider_w 120
+at 204000 rider_w 0
+at 204000 brake 1
+at 212000 brake 0
+
+# hard push-off
+at 214000 rider_w 400
+
+end 218000
+
+# Assist from ~20 degrees of crank; without launch sensing (start delay of
+# pedal pulses) none until ~1.5 s (gentle) and ~1 s (hard) in.
+expect 200800 current >= 3
+expect 214400 current >= 5
+# as strong as the push: the gentle one doesn't surge, the hard one gets more
+expect 201000 current <= 18
+expect 215000 current >= 22

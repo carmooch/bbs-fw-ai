@@ -76,6 +76,9 @@ static class E2E
 	static string simDir;
 	static string here;
 
+	// the version the virtual controller runs (src/firmware/version.h)
+	static readonly Version Firmware = new Version(2, 3, 0);
+
 	static void Check(string what, bool ok, string detail = "")
 	{
 		Console.WriteLine($"{(ok ? "PASS" : "FAIL")} {what}{(detail.Length > 0 ? ": " + detail : "")}");
@@ -221,12 +224,12 @@ static class E2E
 		var port = new ComPort(vc.Port, vc.Port);
 		var backupDir = Path.Combine(Path.GetTempPath(), "bbs-fw-e2e-backups");
 
-		var update = new FirmwareUpdate(FakePackage(new Version(2, 2, 0)), port);
+		var update = new FirmwareUpdate(FakePackage(Firmware), port);
 		Check("wizard: package complete", update.Package.IsComplete);
 
 		var backup = await update.BackupSettings(backupDir, TimeSpan.FromSeconds(5));
 		Check("wizard: backup saved", backup.Saved && File.Exists(update.BackupPath), backup.Message);
-		Check("wizard: previous firmware", update.PreviousFirmware == new Version(2, 2, 0), update.PreviousFirmware?.ToString());
+		Check("wizard: previous firmware", update.PreviousFirmware == Firmware, update.PreviousFirmware?.ToString());
 
 		// chip check, with the "cycle power" prompt
 		var stcgal = update.Package.CreateStcgal();
@@ -360,7 +363,7 @@ static class E2E
 		using var vc = VirtualController.Start("bench.sim");
 		var port = new ComPort(vc.Port, vc.Port);
 		var prompts = new ScriptedPrompts();
-		var wizard = new FlashWizardViewModel(null, prompts, () => FakePackage(new Version(2, 2, 0)))
+		var wizard = new FlashWizardViewModel(null, prompts, () => FakePackage(Firmware))
 		{
 			BackupDirectory = Path.Combine(Path.GetTempPath(), "bbs-fw-e2e-backups"),
 			ConnectTimeout = TimeSpan.FromSeconds(5),

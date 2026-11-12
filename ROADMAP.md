@@ -49,6 +49,39 @@ deliberate, reviewed change to a baseline.
 
 See [TUNING.md](TUNING.md) for switching the new settings on one at a time.
 
+### What 2.3 adds (simulator, not yet ridden)
+
+Closer to a torque-sensor feel, measured by a new benchmark (`sim/feel.py`, see
+[BUILDING.md](BUILDING.md)) against an ideal torque-sensor bike giving 1.5× the rider:
+
+| | 2.2 | 2.3 |
+|---|---|---|
+| Launch onset (crank degrees, launch sensing on) | 78 | 17 |
+| Follows effort below 25 km/h (mean error) | 5.8% | 6.5% |
+| Push harder: time to 90% | 2.2 s | 1.1 s |
+| Ease off: time to 90% | 0.8 s | 0.9 s |
+| Gear change spike or dip | 1.7× | 1.2× |
+| Ghost pedalling assist (fraction of driving) | 3.2× | 0.03× |
+| **Benchmark total (of 65)** | **43.3** | **57.3** |
+
+- **Launch sensing** (off by default): from a standstill, how fast the cranks speed up over the
+  first pedal pulse gives the rider's push, and assist starts in proportion after ~15-20° of
+  crank instead of the start delay's ~80°.
+- **Ghost pedalling:** legs spinning slower than the chainring get no effort assist. Pedal pulses
+  per wheel turn give the gear while the legs drive; drifting off it means they're freewheeling.
+- **Gear changes:** a step in crank speed holds the estimate instead of reading as a surge or a
+  dip; the pattern is only learned from steady revolutions.
+- **Quicker response** to pushing harder (the estimate's change detection and acceleration hold
+  were loosened).
+
+Known limits: everything is simulator-only, and the leg wobble while ghost pedalling (±3%) and
+the motor's torque per amp (5.3 Nm/A) are guesses. Ghost detection needs the wheel speed sensor
+and is slow at walking pace. After an upshift at a perfectly steady speed, the level's normal
+assist stands in until the speed moves ~3%. The estimate reads 20-40% low above 25 km/h, so
+effort assist hands back to the level there. Response to effort is about one crank revolution,
+the floor for a stable estimate from this signal. Launch sensing assumes you start in the gear you
+stopped in.
+
 ### What 2.2 adds (tools)
 
 - **Update Firmware** tab: flashing from the config tool, with the matching firmware and stcgal

@@ -70,6 +70,18 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit $status
 
+      - name: Torque-feel benchmark
+        if: always()
+        working-directory: src/firmware/host
+        run: |
+          echo '### Torque-feel benchmark (simulator only)' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          status=0
+          python3 sim/feel.py --floor 50 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || status=1
+          [ "${PIPESTATUS[0]}" -eq 0 ] || status=1
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
       - name: Plots
         if: always()
         working-directory: src/firmware/host

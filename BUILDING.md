@@ -71,6 +71,15 @@ end 8000
 python3 sim/plot.py compare.svg before.csv after.csv --from 5800 --to 6400
 ```
 
+### Torque-feel benchmark
+
+`python3 sim/feel.py` (after `make ride_sim`, about 20 s) rides the firmware through launches,
+effort steps, steady climbs, a gear change and ghost pedalling, and scores it against an ideal
+torque-sensor bike (motor = 1.5 × rider) out of 65 points. It's a simulator figure, not a ride
+test: what counts is the change between two builds. `--json <file>` saves the metrics;
+`--floor <points>` fails under that total (CI uses 50). The scenarios it writes are in
+`out/feel/`.
+
 ### 8051 cross-check
 
 The unit tests run on a PC, where `int` is 32 bits and floating point is hardware. The controller
@@ -95,7 +104,14 @@ The bike model is deliberately simple. Keep these in mind when reading results:
 - PAS is modelled as a clean quadrature pair with 50% duty. The real BBSHD signal hasn't been
   measured yet (roadmap: bench measurements); `bike pas_duty <fraction>` changes the duty and
   `bike pas_edge_error_deg <deg>` moves each edge by a fixed random error of about that size,
-  like a real sensor's magnets.
+  like a real sensor's magnets. `bike pas_edge_jitter_deg <deg>` (up to 0.5) adds a random error
+  that's new every revolution, like a noisy sensor.
+- `at <ms> spin <rpm>` (with `rider_w` 0) is ghost pedalling: the legs turn the cranks at that
+  cadence without pushing, slower than the chainring, so they freewheel, with ±3% of their own
+  unevenness twice per revolution (a guess, never measured).
+- The motor's push is limited by torque at low speed: about 5.3 Nm per battery amp at the crank
+  (an estimate, not a measured BBSHD figure), so from a standstill current, not power, is what
+  moves the bike.
 - While pedalling, the wheel turns at cadence × `gear`. Otherwise it coasts down at
   `bike coast_decel` m/s².
 - The battery voltage is an input. With `bike battery_r <ohms>` set, that input is the resting
@@ -143,5 +159,6 @@ Upstream files are a mix of CRLF and LF. Keep each file's existing line endings:
 - Builds the BBSHD hex. It's uploaded as an artifact, with memory usage in the run summary.
 - Runs the unit tests and every ride scenario. Scenario results go in the run summary, and the
   CSVs and plots are uploaded as the `ride-sim` artifact.
+- Runs the torque-feel benchmark; its table goes in the run summary, and it fails under 50 points.
 - Checks the config tool against the firmware's config layout, and publishes the tool.
 - Runs the line-ending check.

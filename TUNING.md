@@ -1,4 +1,4 @@
-# Tuning bbs-fw-ai 2.2
+# Tuning bbs-fw-ai 2.3
 
 Everything new since upstream has its own setting, so it can be switched on and judged one change at a
 time. If several change at once and the bike feels wrong, there's no telling which one did it.
@@ -145,6 +145,15 @@ Things to know:
 - It reads low by a fixed amount at higher speeds (about 20-30 W at 15-20 km/h) if you pushed
   hard while it learned. Learning while pedalling lightly avoids that.
 - Gear changes and hard launches hold the last reading for about half a revolution.
+- **Ghost pedalling (2.3).** Turning the cranks without pushing, slower than the chainring (the
+  freewheel clicking), gives no effort assist, as on a torque-sensor bike. It needs the wheel
+  speed sensor: the firmware knows the gear from pedal pulses per wheel turn while your legs
+  drive, and legs that drift off it are freewheeling. It takes a wheel turn or two to notice, so
+  at walking pace (over a second per wheel turn) it's slow.
+- **After a gear change (2.3)**, effort assist checks the new gear: an upshift is confirmed when
+  the speed then changes, so after shifting up at a perfectly steady speed you get the level's
+  normal assist for a moment instead of effort assist, until the speed moves about 3%. Shifting
+  while coasting with your legs spinning: a few seconds of pedalling before effort assist is back.
 - Above Effort Max Speed (default 25 km/h) there's no reading: the wobble is too small to
   measure there.
 - **Throttle (and cruise):** while the throttle is open, the motor can spin the chainring faster
@@ -153,6 +162,28 @@ Things to know:
   for up to 5 s, so a throttle blip doesn't drop it back to the level's fixed current; the
   throttle still wins whenever it asks for more. Don't use the throttle while the pattern is
   learning (step 2): it just won't count.
+
+## Launch sensing (2.3, experimental, off by default)
+
+From a standstill, assist normally waits for the PAS start delay (a few pedal pulses, about 80° of
+crank). With launch sensing, the firmware times the first pedal pulse(s) from a standstill: how
+fast the cranks speed up is how hard you push, given the bike + rider mass and the gear you
+stopped in. Assist starts after about 15-20° of crank, in proportion to the push (the level's
+Effort Assist factor times your torque, 1.0 on a level without it), capped by the level's Max
+Current. It hands over to effort sensing or the level once you're rolling. Until the pedal
+sensor pattern has been found again after switching on, it needs two pulses (about 30°).
+
+1. Learn the sensor first (effort sensing, step 2 above), and set Bike + Rider Mass and the low
+   gear ratio (System → Torque Feel) to your bike.
+2. **On the stand**, rear wheel off the ground: System → Effort Sensing → Launch Sensing ticked,
+   write the config. Push a pedal from still, gently and then hard. Assist should start almost
+   at once, gently for a gentle push. (Unloaded, the wheel spins up fast, so it's only a check
+   that it reacts, not of how strong it is.)
+3. Then a quiet road at a low level. A gentle push-off should pull gently, a hard one harder.
+
+It assumes you start in the gear you stopped in. Starting in a much taller gear than you stopped
+in, it reads your push as weaker than it is; in a much lower one, stronger (up to the level's
+cap). If a push-off ever surges more than you want, untick it.
 
 ## Undoing a change
 

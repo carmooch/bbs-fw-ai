@@ -282,11 +282,12 @@ def report(s):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--json")
+    ap.add_argument("--floor", type=float, help="fail (exit 1) if the measured total is under this")
     args = ap.parse_args()
 
     m = measure()
     s = score(m)
-    report(s)
+    total, _ = report(s)
     print()
     for x in m["low"] + m["high"]:
         print("  %4.1f%% grade, gear %.1f, %3.0f W rider: %4.1f km/h %3.0f rpm -> motor %3.0f W (ideal %3.0f, %2.0f%% off, ripple %2.0f%%)" % (
@@ -294,6 +295,10 @@ def main():
     if args.json:
         with open(args.json, "w") as f:
             json.dump({"metrics": m, "score": {k: v[:2] for k, v in s.items()}}, f, indent=1)
+    if args.floor is not None and total < args.floor:
+        print("\nmeasured total %.1f is under the floor of %.1f" % (total, args.floor))
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

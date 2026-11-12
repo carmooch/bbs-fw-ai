@@ -34,12 +34,12 @@ if ! diff build/host.txt build/8051.txt; then
 	echo "8051 build disagrees with the PC build (PC <, 8051 >)."
 	exit 1
 fi
-echo "8051 and PC builds agree on $(grep -vc '^end' build/host.txt) checkpoints (learned %, valid, W, Nm x10):"
+echo "8051 and PC builds agree on $(grep -vc '^end' build/host.txt) checkpoints (learned %, valid, W, Nm x10, freewheeling, launching, launch Nm x10):"
 grep -v '^end' build/host.txt | sed 's/^/  /'
 
 # machine cycles of a classic 8051; the controller's STC15 runs one in roughly
 # 1.7 of its 20 MHz clock periods
-read -r _ _ edge _ process < <(grep '^cycles' build/out.txt)
+read -r _ _ edge _ process < <(grep "^cycles" build/out.txt)
 awk -v e="$edge" -v p="$process" 'BEGIN {
 	printf "slowest effort_add_edge(): %d cycles, about %.1f ms on the controller\n", e, e * 1.7 / 20000;
 	printf "slowest effort_process():  %d cycles, about %.1f ms on the controller\n", p, p * 1.7 / 20000;

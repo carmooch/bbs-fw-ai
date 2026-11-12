@@ -550,6 +550,14 @@ static int test_effort_spots_ghost_pedalling(void)
 	return 1;
 }
 
+// gear changes, as the wheel sensor sees them: PAS edges per wheel pulse
+// step from one gear's to the other's, one pulse spanning both
+static void shift(crank_t* c, double cad_from, double cad_to, double gear_from, double gear_to)
+{
+	ride_ramp(c, 0.25, cad_from, cad_to, gear_to, 200, -1);
+	effort_add_wheel_pulse((uint16_t)((gear_pulse(gear_from) + gear_pulse(gear_to)) / 2));
+}
+
 static int test_effort_takes_a_gear_change_for_what_it_is(void)
 {
 	crank_t c;
@@ -562,28 +570,84 @@ static int test_effort_takes_a_gear_change_for_what_it_is(void)
 		effort_add_wheel_pulse(gear_pulse(1.2));
 	}
 
-	// shifting up at the same speed: the crank speed steps down, the wheel
-	// pulse that spans the shift is part one gear and part the other, and
-	// from then on the new gear holds
-	ride_ramp(&c, 0.25, 60, 45, 1.6, 200, -1);
-	effort_add_wheel_pulse((uint16_t)((gear_pulse(1.2) + gear_pulse(1.6)) / 2));
+	// a taller gear: the cadence steps down. Until the road speed changes it
+	// could as well be the legs starting to freewheel, so it holds the last
+	// estimate meanwhile; then the rider pushes on, the bike speeds up and
+	// the ratio holds: a gear
+	shift(&c, 60, 45, 1.2, 1.6);
+	uint16_t held;
 	for (int i = 0; i < 5; ++i)
 	{
-		ride(&c, 0.75, 45, 1.6, 200, -1);
+		double cad = 45 + i * 1.0;
+		ride_ramp(&c, 0.75, cad, cad + 1.0, 1.6, 200, -1);
+		g_hw.wheel_rpm_x10 = (uint16_t)((cad + 1.0) * 1.6 * 10);
+		effort_set_wheel_rpm_x10(g_hw.wheel_rpm_x10);
 		effort_add_wheel_pulse(gear_pulse(1.6));
 		ASSERT_TRUE(!effort_is_freewheeling());
+		ASSERT_TRUE(effort_get_assist_power_w(&held));
 	}
-	uint16_t p = ride(&c, 4, 45, 1.6, 200, -1);
-	printf("  after a gear change: 200 W -> %u\n", p);
+	uint16_t p = ride(&c, 4, 50, 1.6, 200, -1);
+	printf("  after shifting up: 200 W -> %u\n", p);
+	ASSERT_TRUE(effort_is_valid());
+	ASSERT_TRUE(p >= 165 && p <= 235);
+
+	// a lower gear: the cadence steps up, which freewheeling legs can't do:
+	// a gear as soon as it holds, whatever the road speed does
+	shift(&c, 50, 67, 1.6, 1.2);
+	for (int i = 0; i < 4; ++i)
+	{
+		ride(&c, 0.9, 67, 1.2, 200, -1);
+		effort_add_wheel_pulse(gear_pulse(1.2));
+	}
+	p = ride(&c, 4, 67, 1.2, 200, -1);
+	printf("  after shifting down at a steady speed: 200 W -> %u\n", p);
 	ASSERT_TRUE(effort_is_valid());
 	ASSERT_TRUE(p >= 165 && p <= 235);
 
 	// a step in crank speed that doesn't settle on a gear is no gear change
-	ride_ramp(&c, 0.25, 45, 35, 1.6, 0.001, -1);
-	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.6) * 0.85));
-	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.6) * 0.78));
-	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.6) * 0.72));
+	ride_ramp(&c, 0.25, 67, 50, 1.2, 0.001, -1);
+	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.2) * 0.85));
+	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.2) * 0.78));
+	effort_add_wheel_pulse((uint16_t)(gear_pulse(1.2) * 0.72));
 	ASSERT_TRUE(effort_is_freewheeling());
+
+	return 1;
+}
+
+// The case the wheel and crank sensors can't tell apart: the legs start
+// spinning without pushing, slower than the chainring, while the bike rolls
+// on at a steady speed. It looks exactly like a shift to a taller gear. The
+// last estimate mustn't carry on: effort assist lets go after 5 s.
+static int test_effort_lets_go_of_a_step_it_cant_explain(void)
+{
+	crank_t c;
+	boot();
+	crank_init(&c, 14, 0);
+	learn(&c);
+	for (int i = 0; i < 6; ++i)
+	{
+		ride(&c, 1.2, 60, 1.2, 200, -1);
+		effort_add_wheel_pulse(gear_pulse(1.2));
+	}
+
+	// legs drop to 40 rpm without pushing; the wheel turns at the 60 rpm
+	// gear's speed, so the cranks see the ratio of a taller gear
+	ride_ramp(&c, 0.25, 60, 40, 1.2, 0.001, -1);
+	effort_add_wheel_pulse((uint16_t)((gear_pulse(1.2) + gear_pulse(1.8)) / 2));
+	uint16_t held;
+	for (int i = 0; i < 3; ++i)
+	{
+		ride(&c, 0.67, 40, 1.8, 0.001, -1);
+		effort_add_wheel_pulse(gear_pulse(1.8));
+	}
+	ASSERT_TRUE(effort_get_assist_power_w(&held));	// still holding, briefly
+	for (int i = 0; i < 6; ++i)
+	{
+		ride(&c, 0.67, 40, 1.8, 0.001, -1);
+		effort_add_wheel_pulse(gear_pulse(1.8));
+	}
+	ASSERT_TRUE(!effort_is_valid());
+	ASSERT_TRUE(!effort_get_assist_power_w(&held));
 
 	return 1;
 }
@@ -606,4 +670,5 @@ void test_effort_run(void)
 	RUN_TEST(test_effort_reads_the_same_all_round_the_crank);
 	RUN_TEST(test_effort_spots_ghost_pedalling);
 	RUN_TEST(test_effort_takes_a_gear_change_for_what_it_is);
+	RUN_TEST(test_effort_lets_go_of_a_step_it_cant_explain);
 }

@@ -131,6 +131,8 @@ static uint16_t revs_since_save;
 static bool save_pending;
 static bool learning_rev;		// this revolution's segments may go into the pattern
 static uint32_t learning_rev_period;	// the revolution time when it began
+static bool commit_pending;		// a steady revolution in snapshot[] goes into the pattern
+static bool commit_first;		// as it is (the first one), not averaged in
 
 // --- edge tracking ---
 static uint8_t prev_state;
@@ -179,6 +181,7 @@ static uint16_t lock_ref_x16;		// PAS edges per wheel pulse in the gear last dri
 static uint16_t lock_last_x16;
 static uint16_t lock_start_x16;		// at the start of probation, or of a steady run while free
 static uint16_t lock_start_wheel;	// wheel speed then
+static uint16_t lock_before_x16;	// the pulse before a steady run while free
 static uint8_t lock_count;
 
 // --- launch sensing ---
@@ -222,6 +225,7 @@ static void reset_window()
 
 static void lose_alignment()
 {
+	commit_pending = false;		// snapshot[] is about to be reused for finding the crank
 	if (learned_revs < ALIGN_MIN_REVS)
 	{
 		// too little learned to find the position with: start learning again,
@@ -248,6 +252,7 @@ void effort_init() __reentrant
 	wheel_rpm_x10 = 0;
 	save_pending = false;
 	revs_since_save = 0;
+	commit_pending = false;
 	held_at_ms = 0;
 	launch_edges = 0;
 	launch_at_ms = 0;
@@ -379,24 +384,16 @@ static float speed2_crank() __reentrant
 // divisions stalled the main loop, and with it the brake check, for tens of
 // milliseconds). The revolution is only taken into the pattern if it turned
 // out steady: a gear change inside it would bend the pattern.
+// A steady revolution goes into the pattern a segment per edge over the next
+// revolution, each entry just before snapshot[] overwrites it (see add_edge):
+// all 96 at once stalled the main loop, and with it the brake check.
 static void learn_revolution() __reentrant
 {
 	float v2w = speed2_crank();
-	uint8_t q;
 
 	learned.v2w = learned_revs == 0 ? v2w : learned.v2w + (v2w - learned.v2w) / 32;
-
-	for (q = 0; q < N; ++q)
-	{
-		if (learned_revs == 0)
-		{
-			learned.shares[q] = snapshot[q];
-		}
-		else
-		{
-			learned.shares[q] += (int16_t)(snapshot[q] - learned.shares[q]) / 32;
-		}
-	}
+	commit_first = learned_revs == 0;
+	commit_pending = true;
 
 	if (learned_revs < 0xffff)
 	{
@@ -480,6 +477,20 @@ static void estimate() __reentrant
 	uint16_t cadence = cadence_rpm_x10();
 	uint16_t min_wheel = kph_to_wheel_rpm_x10(VALID_MIN_SPEED_KPH);
 	uint16_t max_wheel = kph_to_wheel_rpm_x10(g_config.effort_max_speed_kph);
+
+	// After a step in crank speed, until it's known to be a gear change: no
+	// new estimates (if the legs are freewheeling they'd read as effort), and
+	// effort assist keeps the last one for ASSIST_HOLD_MS at most.
+	if (lock_state == LOCK_PROBATION)
+	{
+		if (valid && system_ms() - held_at_ms > ASSIST_HOLD_MS)
+		{
+			valid = false;
+			rider_power_w = 0;
+			rider_torque_nm_x10 = 0;
+		}
+		return;
+	}
 
 	if (!have_trend || lock_state == LOCK_FREE || learned_revs < LEARN_REVS || cadence < VALID_MIN_CADENCE_RPM * 10u ||
 		wheel_rpm_x10 < min_wheel || wheel_rpm_x10 > max_wheel ||
@@ -685,9 +696,14 @@ void effort_add_wheel_pulse(uint16_t e) __reentrant
 		break;
 
 	case LOCK_PROBATION:
+		// A step down in crank speed at the same road speed is a shift to a
+		// taller gear, or the legs starting to spin without driving: the two
+		// look the same until the road speed changes. A gear keeps its ratio
+		// while the bike speeds up or slows down; freewheeling legs don't.
 		if (lock_count == 0)
 		{
 			lock_start_x16 = e;
+			lock_start_wheel = wheel_rpm_x10;
 			lock_count = 1;
 		}
 		else if (!within(e, lock_start_x16, 3))
@@ -695,8 +711,13 @@ void effort_add_wheel_pulse(uint16_t e) __reentrant
 			// it doesn't hold: no gear
 			set_free();
 		}
-		else if (++lock_count >= 4)
+		else if (++lock_count >= 4 &&
+			(lock_start_x16 > lock_ref_x16 || !within(wheel_rpm_x10, lock_start_wheel, 3)))
 		{
+			// More crank turns per wheel turn than before is a lower gear:
+			// freewheeling legs turn the cranks slower, never faster, so that
+			// one holding is enough. Fewer is a taller gear only if it held
+			// while the road speed changed.
 			lock_state = LOCK_DRIVING;
 			lock_ref_x16 = e;
 			lock_count = 0;
@@ -714,12 +735,17 @@ void effort_add_wheel_pulse(uint16_t e) __reentrant
 		}
 		else if (lock_count == 0 || !within(e, lock_start_x16, 2))
 		{
+			lock_before_x16 = lock_last_x16;
 			lock_start_x16 = e;
 			lock_start_wheel = wheel_rpm_x10;
 			lock_count = 1;
 		}
-		else if (++lock_count >= 5 && !within(wheel_rpm_x10, lock_start_wheel, 3))
+		else if (++lock_count >= 4 &&
+			((lock_before_x16 != 0 && !within(lock_start_x16, lock_before_x16, 3) && lock_start_x16 > lock_before_x16) ||
+			(lock_count >= 5 && !within(wheel_rpm_x10, lock_start_wheel, 3))))
 		{
+			// the legs caught up with the chainring: a step up to a ratio
+			// that holds; or a ratio that held while the road speed changed
 			lock_state = LOCK_DRIVING;
 			lock_ref_x16 = e;
 			lock_count = 0;
@@ -837,6 +863,21 @@ static bool add_edge(uint16_t entry) __reentrant
 	// a full revolution is in the window
 	if (aligned)
 	{
+		if (commit_pending)
+		{
+			if (commit_first)
+			{
+				learned.shares[q] = snapshot[q];
+			}
+			else
+			{
+				learned.shares[q] += (int16_t)(snapshot[q] - learned.shares[q]) / 32;
+			}
+			if (q == N - 1)
+			{
+				commit_pending = false;
+			}
+		}
 		if (learning_rev)
 		{
 			// the window is the revolution ending at this segment

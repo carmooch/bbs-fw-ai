@@ -607,6 +607,19 @@ namespace BBSFW.ViewModel
 			}
 		}
 
+		public bool LaunchSensing
+		{
+			get { return _config.LaunchSensing; }
+			set
+			{
+				if (_config.LaunchSensing != value)
+				{
+					_config.LaunchSensing = value;
+					OnPropertyChanged(nameof(LaunchSensing));
+				}
+			}
+		}
+
 		public float WheelSizeInch
 		{
 			get { return _config.WheelSizeInch; }

@@ -11,7 +11,7 @@ namespace BBSFW.Model
 	[XmlRoot("BBSFW", Namespace ="https://github.com/danielnilsson9/bbs-fw")]
 	public class Configuration
 	{
-		public const int CurrentVersion = 7;
+		public const int CurrentVersion = 8;
 		public const int MinVersion = 1;
 		public const int MaxVersion = CurrentVersion;
 
@@ -22,6 +22,7 @@ namespace BBSFW.Model
 		public const int ByteSizeV5 = 154;
 		public const int ByteSizeV6 = 221;
 		public const int ByteSizeV7 = 245;
+		public const int ByteSizeV8 = 246;
 
 		public enum Feature
 		{
@@ -49,6 +50,8 @@ namespace BBSFW.Model
 					return ByteSizeV6;
 				case 7:
 					return ByteSizeV7;
+				case 8:
+					return ByteSizeV8;
 			}
 
 			return 0;
@@ -251,6 +254,9 @@ namespace BBSFW.Model
 		public uint EffortStrokePercent;
 		public uint EffortMaxSpeedKph;
 
+		// version 8: launch sensing
+		public bool LaunchSensing;
+
 		public Configuration() : this(BbsfwConnection.Controller.Unknown)
 		{ }
 
@@ -301,6 +307,7 @@ namespace BBSFW.Model
 			EffortMassKg = 110;
 			EffortStrokePercent = 80;
 			EffortMaxSpeedKph = 25;
+			LaunchSensing = false;
 
 			for (int i = 0; i < StandardAssistLevels.Length; ++i)
 			{
@@ -782,6 +789,24 @@ namespace BBSFW.Model
 			return true;
 		}
 
+		public bool ParseFromBufferV8(byte[] buffer)
+		{
+			if (buffer.Length != ByteSizeV8)
+			{
+				return false;
+			}
+
+			// version 8 appends to the version 7 layout
+			if (!ParseFromBufferV7(buffer.Take(ByteSizeV7).ToArray()))
+			{
+				return false;
+			}
+
+			LaunchSensing = buffer[ByteSizeV7] != 0;
+
+			return true;
+		}
+
 		public byte[] WriteToBuffer()
 		{
 			using (var s = new MemoryStream())
@@ -879,6 +904,9 @@ namespace BBSFW.Model
 					}
 				}
 
+				// version 8
+				bw.Write(LaunchSensing);
+
 				return s.ToArray();
 			}
 		}
@@ -929,6 +957,7 @@ namespace BBSFW.Model
 			EffortMassKg = cfg.EffortMassKg;
 			EffortStrokePercent = cfg.EffortStrokePercent;
 			EffortMaxSpeedKph = cfg.EffortMaxSpeedKph;
+			LaunchSensing = cfg.LaunchSensing;
 
 			for (int i = 0; i < Math.Min(cfg.StandardAssistLevels.Length, StandardAssistLevels.Length); ++i)
 			{

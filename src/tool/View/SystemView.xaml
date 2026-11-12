@@ -262,6 +262,7 @@
 					<RowDefinition Height="Auto" />
 					<RowDefinition Height="Auto" />
 					<RowDefinition Height="Auto" />
+					<RowDefinition Height="Auto" />
 				</Grid.RowDefinitions>
 
 				<TextBlock Grid.Row="0" Text="Effort Sensing" FontSize="18" FontWeight="Bold">
@@ -297,6 +298,13 @@
 					</TextBlock.ToolTip>
 				</TextBlock>
 				<TextBox Grid.Column="2" Grid.Row="4" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.EffortMaxSpeedKph, UpdateSourceTrigger=PropertyChanged}" />
+
+				<TextBlock Grid.Column="0" Grid.Row="5" Margin="0 8 0 0" Text="Launch Sensing:">
+					<TextBlock.ToolTip>
+						<TextBlock Width="300" TextWrapping="Wrap">From a standstill, reads how hard you push off from how fast the cranks speed up over the first pedal pulse (about 15 degrees of crank, 30 until the pattern is found after power on) and starts assist in proportion, before the PAS start delay would. Applies to every PAS level except Variable ones, capped by the level's current. Experimental and off by default: try it with the rear wheel off the ground first.</TextBlock>
+					</TextBlock.ToolTip>
+				</TextBlock>
+				<CheckBox Grid.Column="2" Grid.Row="5" Margin="0 8 0 0" HorizontalAlignment="Right" IsChecked="{Binding ConfigVm.LaunchSensing, UpdateSourceTrigger=PropertyChanged}" />
 
 			</Grid>
 

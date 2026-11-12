@@ -24,8 +24,8 @@ void Check(string what, object expected, object actual)
 	}
 }
 
-Check("config size", Configuration.ByteSizeV7, bytes.Length);
-Check("parse", true, cfg.ParseFromBufferV7(bytes));
+Check("config size", Configuration.ByteSizeV8, bytes.Length);
+Check("parse", true, cfg.ParseFromBufferV8(bytes));
 
 Check("max current", 33u, cfg.MaxCurrentAmps);
 Check("current ramp", 12u, cfg.CurrentRampAmpsSecond);
@@ -57,6 +57,7 @@ Check("effort max speed", 22u, cfg.EffortMaxSpeedKph);
 Check("level 3 effort", 2.0f, l3.EffortAssistFactor);
 Check("sport level 9 effort", 25.5f, cfg.SportAssistLevels[9].EffortAssistFactor);
 Check("standard level 0 effort", 0f, cfg.StandardAssistLevels[0].EffortAssistFactor);
+Check("launch sensing", true, cfg.LaunchSensing);
 
 Check("written bytes identical", true, cfg.WriteToBuffer().SequenceEqual(bytes));
 

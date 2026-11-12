@@ -22,6 +22,7 @@ int main(void)
 	c.assist_level_ext[0][3].current_ramp_amps_s = 5; c.assist_level_ext[1][9].power_w_per_rpm_x10 = 99;
 	c.display_range_field = 3; c.effort_mass_kg = 95; c.effort_stroke_x100 = 70; c.effort_max_speed_kph = 22;
 	c.assist_effort_x10[0][3] = 20; c.assist_effort_x10[1][9] = 255;
+	c.launch_sensing = 1;
 	fwrite(&c, sizeof(c), 1, stdout);
 	return 0;
 }

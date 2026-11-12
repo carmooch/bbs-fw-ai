@@ -230,7 +230,7 @@ uint8_t pas_read_edges(uint16_t* dst, uint8_t max, bool* overflow)
 	return n;
 }
 
-bool speed_sensor_read_pulse(uint16_t* pas_edges_x16)
+bool speed_sensor_read_pulse(uint16_t* pas_edges_x16) __reentrant
 {
 	uint8_t seq;
 	uint16_t edges, ticks, segment, now_x16;

@@ -33,7 +33,7 @@ uint8_t pas_read_edges(uint16_t* dst, uint8_t max, bool* overflow);
 // before: 96 x 16 / (wheel turns per crank turn x sensor signals per turn)
 // while the cranks drive the wheel. Measured at the pulse itself, so it
 // doesn't lag when the bike speeds up or slows down.
-bool speed_sensor_read_pulse(uint16_t* pas_edges_x16);
+bool speed_sensor_read_pulse(uint16_t* pas_edges_x16) __reentrant;
 uint16_t pas_get_cadence_rpm_x10();
 uint16_t pas_get_pulse_counter();
 bool pas_is_pedaling_forwards();

@@ -86,7 +86,7 @@ static bool lights_state = false;
 void apply_pas_cadence(uint8_t* target_current, uint8_t throttle_percent);
 uint8_t compute_pas_power_current();
 uint8_t power_to_level_current(uint32_t power_w_x10);
-uint8_t launch_torque_to_level_current(uint16_t rider_nm_x10);
+uint8_t launch_torque_to_level_current(uint16_t rider_nm_x10) __reentrant;
 uint8_t apply_gear_boost(uint8_t current);
 uint8_t apply_cadence_lock(uint8_t target_cadence);
 uint16_t ramp_interval_ms(uint8_t amps_per_second);
@@ -555,7 +555,7 @@ uint8_t compute_pas_power_current()
 // at the crank at 30 A, so 5.3 Nm per amp (an estimate, not measured here).
 #define MOTOR_NM_X10_PER_AMP	53
 
-uint8_t launch_torque_to_level_current(uint16_t rider_nm_x10)
+uint8_t launch_torque_to_level_current(uint16_t rider_nm_x10) __reentrant
 {
 	uint8_t factor_x10 = assist_level_data.effort_x10 > 0 ? assist_level_data.effort_x10 : 10;
 	uint32_t amps_x10 = ((uint32_t)rider_nm_x10 * factor_x10) / MOTOR_NM_X10_PER_AMP;

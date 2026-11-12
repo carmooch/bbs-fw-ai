@@ -61,7 +61,7 @@ bool effort_is_freewheeling();
 
 // Feeds one wheel sensor pulse: PAS edges (x16) since the pulse before, as
 // speed_sensor_read_pulse() gives them. effort_process() calls it; tests may.
-void effort_add_wheel_pulse(uint16_t pas_edges_x16);
+void effort_add_wheel_pulse(uint16_t pas_edges_x16) __reentrant;
 
 // Launch sensing: how hard the rider pushed off from a standstill, as torque
 // at the crank (Nm x10). The bike starts from rest with the motor off, so
@@ -69,7 +69,7 @@ void effort_add_wheel_pulse(uint16_t pas_edges_x16);
 // push alone: torque = bike mass seen from the crank x crank acceleration.
 // True from the 5th forward edge of a standing start until the estimate
 // above takes over, the pedals stop, or 2.5 s have passed.
-bool effort_get_launch_torque_nm_x10(uint16_t* nm_x10);
+bool effort_get_launch_torque_nm_x10(uint16_t* nm_x10) __reentrant;
 
 // --- bench testing (config tool's Bench page) ---
 

@@ -549,7 +549,7 @@ static void estimate() __reentrant
 		{
 			k = 1.0f;
 		}
-		else if (d_re + d_im > 6.0f * noise)
+		else if (d_re + d_im > 4.0f * noise)
 		{
 			k = k > 2.0f ? 2.0f : k;
 		}
@@ -604,7 +604,7 @@ static void estimate() __reentrant
 // Without it, only the whole pulse's 15 degrees is known, and the start is
 // taken to be from rest: 2 x 15 degrees / t^2 (which reads high if the bike
 // was creeping).
-static void launch_measure()
+static void launch_measure() __reentrant
 {
 	static float ta, tb, accel, lever, nm_x10;
 	uint16_t size_inch_x10 = EXPAND_U16(g_config.wheel_size_inch_x10_u16h, g_config.wheel_size_inch_x10_u16l);
@@ -634,13 +634,13 @@ static void launch_measure()
 	}
 }
 
-static bool within(uint16_t a, uint16_t b, uint8_t percent)
+static bool within(uint16_t a, uint16_t b, uint8_t percent) __reentrant
 {
 	uint16_t d = a > b ? a - b : b - a;
 	return (uint32_t)d * 100u <= (uint32_t)b * percent;
 }
 
-static void set_free()
+static void set_free() __reentrant
 {
 	lock_state = LOCK_FREE;
 	lock_count = 0;
@@ -652,7 +652,7 @@ static void set_free()
 // gear: exactly constant, whatever the speed does, and changing only in a
 // step when the rider shifts. Legs turning slower than the chainring show as
 // a ratio that drifts, or that doesn't hold after a step.
-void effort_add_wheel_pulse(uint16_t e)
+void effort_add_wheel_pulse(uint16_t e) __reentrant
 {
 	// too few edges to tell: hardly pedalling (the estimate has no window then)
 	if (e < 16u * 8u)
@@ -821,7 +821,7 @@ static bool add_edge(uint16_t entry) __reentrant
 		{
 			// until the step and the pulse before it have left the window, and
 			// the sum from half a revolution earlier that the trend is taken from
-			dirty_edges = N + N / 2 + 8;
+			dirty_edges = (uint8_t)(N + N / 2 + 8);
 		}
 	}
 	else
@@ -979,7 +979,7 @@ bool effort_get_assist_power_w(uint16_t* power_w)
 	return false;
 }
 
-bool effort_get_launch_torque_nm_x10(uint16_t* nm_x10)
+bool effort_get_launch_torque_nm_x10(uint16_t* nm_x10) __reentrant
 {
 	if (launch_at_ms == 0)
 	{

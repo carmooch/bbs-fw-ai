@@ -954,7 +954,7 @@ bool effort_is_valid()
 	return valid;
 }
 
-bool effort_is_freewheeling()
+bool effort_is_freewheeling() __reentrant
 {
 	return lock_state == LOCK_FREE;
 }

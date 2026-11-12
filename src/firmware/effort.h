@@ -57,7 +57,7 @@ uint8_t effort_get_learned_percent();
 // edges per wheel sensor pulse: with the cranks driving that is the gear,
 // and only changes in a step (a gear change). True from when it drifts until
 // the cranks have caught up with a gear again. No estimate while true.
-bool effort_is_freewheeling();
+bool effort_is_freewheeling() __reentrant;
 
 // Feeds one wheel sensor pulse: PAS edges (x16) since the pulse before, as
 // speed_sensor_read_pulse() gives them. effort_process() calls it; tests may.

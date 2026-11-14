@@ -1,0 +1,64 @@
+<Window x:Class="BBSFW.App.ReviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Review and write" Width="900" Height="600" WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Surface}" ResizeMode="NoResize" ShowInTaskbar="False">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="1.15*" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <DockPanel Grid.Column="0" Margin="26">
+      <StackPanel DockPanel.Dock="Top">
+        <TextBlock x:Name="Heading" FontSize="20" FontWeight="Bold" Text="Write changes to the bike" />
+        <TextBlock Text="Working copy → controller. Everything else stays as it is." Foreground="{StaticResource Muted}" FontSize="13" Margin="0,5,0,14" />
+        <Grid Margin="0,0,0,6">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <TextBlock Text="SETTING" Foreground="{StaticResource Muted}" FontSize="10.5" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="1" Text="ON BIKE" Foreground="{StaticResource Muted}" FontSize="10.5" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="2" Text="AFTER" Foreground="{StaticResource Muted}" FontSize="10.5" FontWeight="SemiBold" />
+        </Grid>
+      </StackPanel>
+      <Border DockPanel.Dock="Bottom" Background="{StaticResource Nav}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="12" Padding="14,12" Margin="0,14,0,0">
+        <StackPanel x:Name="Checks" />
+      </Border>
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ItemsControl x:Name="Diff">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border BorderBrush="#222A35" BorderThickness="0,1,0,0" Padding="0,8">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding Name}" FontSize="13" Foreground="#DCE2EA" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="1" Text="{Binding Before}" FontFamily="{StaticResource Mono}" FontSize="13" Foreground="{StaticResource Muted}" />
+                  <TextBlock Grid.Column="2" Text="{Binding After}" FontFamily="{StaticResource Mono}" FontSize="13" Foreground="{StaticResource Changed}" FontWeight="SemiBold" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DockPanel>
+
+    <Border Grid.Column="1" Background="{StaticResource Bar}" BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+      <DockPanel Margin="26">
+        <StackPanel DockPanel.Dock="Top">
+          <TextBlock Text="Save this tune as (optional)" Foreground="{StaticResource Text2}" FontSize="12.5" FontWeight="SemiBold" />
+          <TextBox x:Name="TuneName" Style="{StaticResource Field}" Margin="0,6,0,14" />
+          <TextBlock Text="Notes" Foreground="{StaticResource Text2}" FontSize="12.5" FontWeight="SemiBold" />
+          <TextBox x:Name="Notes" Style="{StaticResource Field}" Margin="0,6,0,14" Height="90" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" />
+          <CheckBox x:Name="BatteryOk" Foreground="{StaticResource Changed}" Visibility="Collapsed" Margin="0,0,0,8">
+            <TextBlock Text="I mean to change the battery voltages" Foreground="{StaticResource Changed}" />
+          </CheckBox>
+          <TextBlock Text="A backup of the bike's settings is always saved first." Foreground="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button x:Name="BackButton" Style="{StaticResource ToolButton}" Content="Back" Height="42" Width="120" Click="Back_Click" />
+          <Button x:Name="WriteButton" Style="{StaticResource PrimaryButton}" Content="Write to bike" Height="42" Width="170" Margin="10,0,0,0" Click="Write_Click" />
+        </StackPanel>
+        <TextBlock x:Name="Result" TextWrapping="Wrap" FontSize="13" Margin="0,16,0,16" VerticalAlignment="Bottom" />
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>

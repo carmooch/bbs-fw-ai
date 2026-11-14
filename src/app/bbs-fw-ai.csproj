@@ -1,0 +1,27 @@
+<!--
+  BBS-FW-AI: a tuning workspace for bbs-fw, separate from the config tool
+  (src/tool), which is left as it is. Reuses the config tool's protocol and
+  configuration code, as bbs-link does.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>BBSFW.App</RootNamespace>
+    <AssemblyName>BBS-FW-AI</AssemblyName>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS8632;CA1416</NoWarn>
+    <Version>2.3.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="5.0.0" />
+    <PackageReference Include="System.Management" Version="6.0.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
+    <Compile Include="../tool/Model/*.cs" />
+    <Compile Include="../tool/Properties/Settings.Designer.cs" />
+    <Compile Include="*.cs" />
+  </ItemGroup>
+</Project>

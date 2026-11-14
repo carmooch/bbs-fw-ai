@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:BBSFW.View"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
              mc:Ignorable="d" 
              d:DesignHeight="500" d:DesignWidth="850">
 
@@ -27,13 +28,12 @@
 		<!-- plain-text explanations wrap instead of running off as one long line -->
 		<Style TargetType="{x:Type ToolTip}">
 			<Setter Property="MaxWidth" Value="380" />
-			<Setter Property="ContentTemplate">
-				<Setter.Value>
-					<DataTemplate>
-						<TextBlock Text="{Binding}" TextWrapping="Wrap" />
-					</DataTemplate>
-				</Setter.Value>
-			</Setter>
+			<Style.Resources>
+				<!-- only for text tooltips: the ones written as a TextBlock show as they are -->
+				<DataTemplate DataType="{x:Type sys:String}">
+					<TextBlock Text="{Binding}" TextWrapping="Wrap" />
+				</DataTemplate>
+			</Style.Resources>
 		</Style>
 
 		<Style TargetType="{x:Type TextBlock}">
@@ -41,6 +41,9 @@
 			<Setter Property="Cursor" Value="Help" />
 			<Setter Property="ToolTipService.InitialShowDelay" Value="250" />
 			<Setter Property="ToolTipService.ShowDuration" Value="60000" />
+			<!-- beside the label, so a touchscreen's menu-on-the-left setting can't push it off the window -->
+			<Setter Property="ToolTipService.Placement" Value="Right" />
+			<Setter Property="ToolTipService.HorizontalOffset" Value="12" />
 			<Style.Triggers>
 				<Trigger Property="ToolTip" Value="{x:Null}">
 					<Setter Property="TextDecorations" Value="{x:Null}" />

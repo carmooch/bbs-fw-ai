@@ -1,0 +1,137 @@
+<Application x:Class="BBSFW.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+  <Application.Resources>
+    <!-- v8 palette: graphite surfaces, one blue accent, orange for "differs from the bike" -->
+    <SolidColorBrush x:Key="Bg" Color="#0E1116" />
+    <SolidColorBrush x:Key="Bar" Color="#12161C" />
+    <SolidColorBrush x:Key="Nav" Color="#10141A" />
+    <SolidColorBrush x:Key="Surface" Color="#151A21" />
+    <SolidColorBrush x:Key="Raised" Color="#1B212A" />
+    <SolidColorBrush x:Key="SelectedRow" Color="#1B2234" />
+    <SolidColorBrush x:Key="Line" Color="#1F2630" />
+    <SolidColorBrush x:Key="Border" Color="#2C3644" />
+    <SolidColorBrush x:Key="Ink" Color="#F1F4F8" />
+    <SolidColorBrush x:Key="Text2" Color="#BAC3CF" />
+    <SolidColorBrush x:Key="Muted" Color="#8592A3" />
+    <SolidColorBrush x:Key="Accent" Color="#7B95FF" />
+    <SolidColorBrush x:Key="AccentLight" Color="#9DB0FF" />
+    <SolidColorBrush x:Key="Changed" Color="#FFC48A" />
+    <SolidColorBrush x:Key="ChangedDot" Color="#FF9F43" />
+    <SolidColorBrush x:Key="Danger" Color="#FF6B6B" />
+    <SolidColorBrush x:Key="Ok" Color="#4BE39A" />
+    <SolidColorBrush x:Key="Teal" Color="#4FD1C5" />
+    <FontFamily x:Key="Mono">Cascadia Mono, Consolas</FontFamily>
+
+    <Style TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
+    </Style>
+
+    <Style x:Key="ToolButton" TargetType="Button">
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="Background" Value="{StaticResource Raised}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="11,0" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+              <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentLight}" /></Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentLight}" /></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="b" Property="Opacity" Value="0.45" /></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="#0E1116" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="16,0" />
+    </Style>
+
+    <Style x:Key="NavItem" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{StaticResource Text2}" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="b" CornerRadius="8" Padding="10,7" Background="Transparent">
+              <ContentPresenter />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Background" Value="{StaticResource Raised}" /></Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="b" Property="Background" Value="{StaticResource SelectedRow}" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="Segment" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="#9AA5B4" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="b" CornerRadius="7" Padding="12,6" Background="Transparent">
+              <ContentPresenter />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="b" Property="Background" Value="#242D39" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="CellBox" TargetType="TextBox">
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="CaretBrush" Value="White" />
+      <Style.Triggers>
+        <Trigger Property="IsKeyboardFocused" Value="True">
+          <Setter Property="Background" Value="#0E1116" />
+          <Setter Property="BorderBrush" Value="{StaticResource AccentLight}" />
+          <Setter Property="BorderThickness" Value="1.5" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Field" TargetType="TextBox">
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="Background" Value="#0E1116" />
+      <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="CaretBrush" Value="White" />
+    </Style>
+  </Application.Resources>
+</Application>

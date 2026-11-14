@@ -130,6 +130,11 @@ jobs:
       - name: Publish
         run: dotnet publish src/tool/bbs-fw-tool.csproj -c Release -o publish
 
+      # BBS-FW-AI, the new tuning workspace beside the config tool: built
+      # here so it keeps compiling, not shipped in the release yet
+      - name: Build BBS-FW-AI
+        run: dotnet build src/app/bbs-fw-ai.csproj -c Release
+
       # The Update Firmware tab flashes with what's in publish/flash: the
       # firmware from this same commit and stcgal (open-source STC flasher).
       - uses: actions/download-artifact@v4

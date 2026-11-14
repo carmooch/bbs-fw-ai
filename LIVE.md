@@ -7,33 +7,32 @@ the serial link and takes commands.
 
 ## What you need
 
-- The laptop (Windows 10 or 11), with the **Claude desktop app** signed in. bbs-link needs no
-  other software.
+- The laptop (Windows 10 or 11), with the **Claude desktop app** signed in. Nothing else to
+  install: the session downloads bbs-link itself.
 - The **programming cable** used for flashing, plugged in where the display normally goes. If
   flashing has worked with it, it works here.
-- The latest **BBSFWTool** download from a green CI run on `master` (the Actions tab). It holds
-  `link/bbs-link.exe` and this guide, next to the config tool and the firmware.
-
-## Setting up the laptop (once)
-
-1. Unzip BBSFWTool to a folder of its own, e.g. `C:\bbs`.
-2. Flash this firmware version if the bike runs an older one (Update Firmware tab, see
-   [TUNING.md](TUNING.md)). bbs-link refuses to change settings on a controller whose settings
-   format doesn't match.
-3. Plug the cable into the laptop and the bike, battery on. In a terminal in `C:\bbs\link`, run
-   `.\bbs-link.exe ports`. A new COM port should show up when the cable is plugged in. If none
-   does, install the cable's USB-serial driver (CH340, FTDI or PL2303; Windows Update usually has
-   it).
+- The bike running this firmware version (flash it first if not, see [TUNING.md](TUNING.md)):
+  bbs-link refuses to change settings on a controller whose settings format doesn't match.
 
 ## Starting a session
 
-**Simplest:** open the Claude desktop app on the laptop, start a Claude Code session in the
-`C:\bbs\link` folder, and ask it to connect to the bike. `CLAUDE.md` in that folder tells it how
-bbs-link works and the rules it follows.
+1. Make an empty folder on the laptop, e.g. `C:\bbs`, and start a Claude Code session in it from
+   the Claude desktop app.
+2. Plug the cable into the laptop and the bike, battery on.
+3. Tell it: *"Read CLAUDE.md in this repository and connect to my bike:"* followed by this
+   repository's address (the GitHub page you're reading this on).
 
-**From a session you already have on the web or your phone:** in the Claude desktop app on the
+It downloads `bbs-link.exe` and its rules from the repository's **latest release** (built by CI
+from `master` after every green push, no login needed), checks them against their checksums,
+finds the cable's port and connects. If no port shows up, the cable's USB-serial driver is
+missing (CH340, FTDI or PL2303; Windows Update usually has it), and it will say so.
+
+The same release has **BBSFWTool.zip** (config tool, firmware and flasher) and the firmware hex,
+so flashing doesn't need the Actions page either.
+
+**Or from a session you already have on the web or your phone:** in the Claude desktop app on the
 laptop, turn on Remote Control (Settings → Claude Code → Remote Control) and share the
-`C:\bbs\link` folder. The session can then ask to use that folder, and you approve it on the
+`C:\bbs` folder. The session can then ask to use that folder, and you approve it on the
 laptop. This isn't available to every account yet; the first way always works.
 
 ## What it can and can't do

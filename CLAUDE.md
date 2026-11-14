@@ -19,9 +19,17 @@ checks, [TUNING.md](TUNING.md) and [LIVE.md](LIVE.md) the owner's side.
 
 ## Live sessions with the bike (bbs-link)
 
-When the laptop is plugged into the bike, `bbs-link` talks to the controller. In the BBSFWTool
-download it's `.\bbs-link.exe` in the `link` folder (where this file is then); in the repository,
+When the laptop is plugged into the bike, `bbs-link` talks to the controller. On the laptop it's
+`.\bbs-link.exe` beside this file (from the latest release, or the `link` folder of
+BBSFWTool.zip); in the repository,
 `dotnet run --project src/link -c Release -- <command>`. `bbs-link help` lists the commands.
+
+**On a fresh laptop** (asked to connect to the bike, no bbs-link here yet): download
+`bbs-link.exe`, `CLAUDE.md` and `SHA256SUMS` from this repository's latest release
+(`https://github.com/<owner>/<repo>/releases/latest/download/<file>`, the owner and repository
+from the address you were given) into the working folder, check them with
+`sha256sum -c --ignore-missing SHA256SUMS`, read the downloaded `CLAUDE.md` (it matches the
+`bbs-link.exe` beside it), then start as below. Never run a bbs-link whose checksum doesn't match.
 
 **Starting:** `bbs-link ports`, then run `bbs-link serve --port COMn` as a background process (it
 holds the port until `bbs-link stop`). `bbs-link status` shows when it's connected. It sets level 0

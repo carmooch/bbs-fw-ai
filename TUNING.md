@@ -5,7 +5,8 @@ time. If several change at once and the bike feels wrong, there's no telling whi
 
 ## Flashing: the Update Firmware tab
 
-From the latest green CI run on `master`, download **BBSFWTool** and unzip it. It needs the .NET 6
+Download **BBSFWTool.zip** from the repository's latest release (Releases, on the GitHub page;
+rebuilt from `master` after every green CI run) and unzip it. It needs the .NET 6
 Desktop Runtime, the same as the upstream tool. It contains the matching firmware and a flasher
 (stcgal), so nothing else is needed: no STC-ISP, no separate firmware download.
 

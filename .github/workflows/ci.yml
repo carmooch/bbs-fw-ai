@@ -190,3 +190,55 @@ jobs:
 
       - name: No line-ending-only changes against upstream
         run: scripts/check-eol.sh
+
+  # A rolling "latest" release from master, so a Claude session on the laptop
+  # (or anyone) can download bbs-link and the firmware without a GitHub
+  # login: .../releases/latest/download/bbs-link.exe. On other branches it
+  # only assembles and checks the files.
+  release:
+    name: Release (master)
+    runs-on: ubuntu-24.04
+    needs: [firmware, host, tool-layout, config-tool, line-endings]
+    permissions:
+      contents: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: BBSFWTool
+          path: bundle
+
+      - name: Assemble the release files
+        run: |
+          mkdir release
+          cp bundle/link/bbs-link.exe CLAUDE.md LIVE.md release/
+          cp bundle/flash/bbs-fw-BBSHD.hex release/
+          (cd bundle && zip -qr ../release/BBSFWTool.zip .)
+          version=$(cat bundle/flash/version.txt)
+          echo "version=$version" >> "$GITHUB_ENV"
+          (cd release && sha256sum * > SHA256SUMS)
+          cat release/SHA256SUMS
+          test -s release/bbs-link.exe && test -s release/bbs-fw-BBSHD.hex
+
+      - name: Publish
+        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<NOTES
+          bbs-fw $version, built by CI from master at ${GITHUB_SHA::7}. Replaced on every green push to master.
+
+          - **bbs-link.exe**: the live link for a Claude session on the laptop (see LIVE.md). Windows, no install.
+          - **BBSFWTool.zip**: the config tool with the firmware and flasher (Update Firmware tab), and bbs-link.
+          - **bbs-fw-BBSHD.hex**: the firmware on its own.
+          - **CLAUDE.md**, **LIVE.md**: how a live session works. **SHA256SUMS**: checksums.
+
+          Simulator-tested; see ROADMAP.md for what has and hasn't been tried on a bike.
+          NOTES
+          gh release delete latest --cleanup-tag --yes 2>/dev/null || true
+          gh release create latest --target "$GITHUB_SHA" --title "bbs-fw $version (latest master)" \
+            --notes-file notes.md --latest release/*

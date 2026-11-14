@@ -9,8 +9,47 @@
 
 	<UserControl.Resources>
 		<BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+		<TextDecorationCollection x:Key="HelpUnderline">
+			<TextDecoration Location="Underline" PenOffset="2">
+				<TextDecoration.Pen>
+					<Pen Brush="#FF808080" Thickness="1">
+						<Pen.DashStyle>
+							<DashStyle Dashes="1 2" />
+						</Pen.DashStyle>
+					</Pen>
+				</TextDecoration.Pen>
+			</TextDecoration>
+		</TextDecorationCollection>
+
+		<!-- A label with an explanation gets a dotted underline and a help cursor, and its
+		     explanation shows quickly and stays up while you read it. -->
+		<!-- plain-text explanations wrap instead of running off as one long line -->
+		<Style TargetType="{x:Type ToolTip}">
+			<Setter Property="MaxWidth" Value="380" />
+			<Setter Property="ContentTemplate">
+				<Setter.Value>
+					<DataTemplate>
+						<TextBlock Text="{Binding}" TextWrapping="Wrap" />
+					</DataTemplate>
+				</Setter.Value>
+			</Setter>
+		</Style>
+
+		<Style TargetType="{x:Type TextBlock}">
+			<Setter Property="TextDecorations" Value="{StaticResource HelpUnderline}" />
+			<Setter Property="Cursor" Value="Help" />
+			<Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+			<Setter Property="ToolTipService.ShowDuration" Value="60000" />
+			<Style.Triggers>
+				<Trigger Property="ToolTip" Value="{x:Null}">
+					<Setter Property="TextDecorations" Value="{x:Null}" />
+					<Setter Property="Cursor" Value="{x:Null}" />
+				</Trigger>
+			</Style.Triggers>
+		</Style>
 	</UserControl.Resources>
-	
+
 	<Grid>
 
 		<Grid.ColumnDefinitions>
@@ -21,9 +60,13 @@
 
 		<Grid.RowDefinitions>
 			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
 		</Grid.RowDefinitions>
 
-		<StackPanel Grid.Column="0" Grid.Row="0" >
+		<TextBlock Grid.Row="0" Grid.ColumnSpan="3" Margin="0 0 0 14" Foreground="#FF606060" FontStyle="Italic"
+			Text="Point at an underlined setting to see what it does. Settings change on the bike only after Flash &gt; Write." />
+
+		<StackPanel Grid.Column="0" Grid.Row="1" >
 			
 			<Grid>
 
@@ -44,22 +87,22 @@
 
 				<TextBlock Grid.Row="0" Text="Global" FontSize="18" FontWeight="Bold" />
 
-				<TextBlock Grid.Column="0" Grid.Row="1" Margin="0 10 0 0" Text="Max Current (A):" />
+				<TextBlock Grid.Column="0" Grid.Row="1" Margin="0 10 0 0" Text="Max Current (A):" ToolTip="Battery current at 100% assist. Every assist level's current is a percentage of this. Higher means more power and more heat in the motor and controller." />
 				<TextBox Grid.Column="2" Grid.Row="1" Margin="0 10 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.MaxCurrentAmps, UpdateSourceTrigger=PropertyChanged}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 10 0 0" Text="Current Ramp (A/s):" />
+				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 10 0 0" Text="Current Ramp (A/s):" ToolTip="How fast the motor current is allowed to rise. Lower is smoother, higher is snappier. An assist level with its own ramp uses that instead." />
 				<TextBox Grid.Column="2" Grid.Row="2" Margin="0 10 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.CurrentRampAmpsSecond, UpdateSourceTrigger=PropertyChanged}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 10 0 0" Text="Max Battery Voltage (V):" />
+				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 10 0 0" Text="Max Battery Voltage (V):" ToolTip="The battery's full-charge voltage, used to work out the battery % on the display. 58.8 V for a 14-cell (52 V) pack, 54.6 V for a 13-cell (48 V) pack." />
 				<TextBox Grid.Column="2" Grid.Row="3" Margin="0 10 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.MaxBatteryVolts, UpdateSourceTrigger=LostFocus}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="4" Margin="0 8 0 0" Text="Low Voltage Cutoff (V):" />
+				<TextBlock Grid.Column="0" Grid.Row="4" Margin="0 8 0 0" Text="Low Voltage Cutoff (V):" ToolTip="Assist stops below this voltage to protect the battery. Keep it at or above what your battery's own protection allows, and only change it on purpose." />
 				<TextBox Grid.Column="2" Grid.Row="4" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.LowCutoffVolts, UpdateSourceTrigger=PropertyChanged}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="5" Margin="0 10 0 0" Text="Max Speed (km/h):" Visibility="{Binding ConfigVm.UseMetricUnits, Converter={StaticResource BoolToVis}}" />
+				<TextBlock Grid.Column="0" Grid.Row="5" Margin="0 10 0 0" Text="Max Speed (km/h):" ToolTip="Top speed for assist: assist fades out as you approach it. Each assist level can lower it further with its own speed %, on the Assist Levels tab." Visibility="{Binding ConfigVm.UseMetricUnits, Converter={StaticResource BoolToVis}}" />
 				<TextBox Grid.Column="2" Grid.Row="5" Margin="0 10 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.MaxSpeedKph, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ConfigVm.UseMetricUnits, Converter={StaticResource BoolToVis}}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="5" Margin="0 10 0 0" Text="Max Speed (mph):" Visibility="{Binding ConfigVm.UseImperialUnits, Converter={StaticResource BoolToVis}}" />
+				<TextBlock Grid.Column="0" Grid.Row="5" Margin="0 10 0 0" Text="Max Speed (mph):" ToolTip="Top speed for assist: assist fades out as you approach it. Each assist level can lower it further with its own speed %, on the Assist Levels tab." Visibility="{Binding ConfigVm.UseImperialUnits, Converter={StaticResource BoolToVis}}" />
 				<TextBox Grid.Column="2" Grid.Row="5" Margin="0 10 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.MaxSpeedMph, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ConfigVm.UseImperialUnits, Converter={StaticResource BoolToVis}}" />
 			</Grid>
 
@@ -81,13 +124,13 @@
 
 				<TextBlock Grid.Row="0" Text="Throttle" FontSize="18" FontWeight="Bold" />
 
-				<TextBlock Grid.Column="0" Grid.Row="1" Margin="0 10 0 0" Text="Start Voltage (mV):" />
+				<TextBlock Grid.Column="0" Grid.Row="1" Margin="0 10 0 0" Text="Start Voltage (mV):" ToolTip="Throttle signal at which the throttle starts to count. Raise it if the motor creeps with the throttle released." />
 				<TextBox Grid.Column="2" Grid.Row="1" Margin="0 10 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.ThrottleStartVoltageMillivolts, UpdateSourceTrigger=PropertyChanged}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 8 0 0" Text="End Voltage (mV):" />
+				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 8 0 0" Text="End Voltage (mV):" ToolTip="Throttle signal at full twist. Lower it if a full twist never reaches 100%." />
 				<TextBox Grid.Column="2" Grid.Row="2" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.ThrottleEndVoltageMillivolts, UpdateSourceTrigger=PropertyChanged}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 8 0 0" Text="Start Current (%):" />
+				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 8 0 0" Text="Start Current (%):" ToolTip="Motor current as soon as the throttle starts to count, as a percentage of Max Current. It rises from here to the level's throttle limit at full twist." />
 				<TextBox Grid.Column="2" Grid.Row="3" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.ThrottleStartCurrentPercent, UpdateSourceTrigger=PropertyChanged}" />
 
 				<TextBlock Grid.Column="0" Grid.Row="4" Margin="0 8 0 0" Text="Global Speed Limit Options:">
@@ -150,10 +193,10 @@
 
 				<TextBlock Grid.Row="0" Text="Pedal Assist" FontSize="18" FontWeight="Bold" />
 
-				<TextBlock Grid.Column="0" Grid.Row="1" Margin="0 10 0 0" Text="Start Delay (°):" />
+				<TextBlock Grid.Column="0" Grid.Row="1" Margin="0 10 0 0" Text="Start Delay (°):" ToolTip="How far the cranks turn from a standstill before assist starts. Smaller starts sooner; larger avoids a surprise when you nudge a pedal. Rolling Start Delay and Launch Sensing, under Torque Feel, can start it sooner." />
 				<ComboBox Grid.Column="2" Grid.Row="1" Margin="0 10 0 0" Padding="6 2 6 0" Width="60" Height="20" HorizontalAlignment="Right" ItemsSource="{Binding ConfigVm.PasStartDelayOptions, UpdateSourceTrigger=PropertyChanged}" SelectedItem="{Binding ConfigVm.PasStartDelayDegrees}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 8 0 0" Text="Stop Delay (ms):" />
+				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 8 0 0" Text="Stop Delay (ms):" ToolTip="How long assist keeps going after the last pedal sensor pulse. Shorter stops sooner when you stop pedalling. Predictive Stop, under Torque Feel, can stop it sooner still." />
 				<TextBox Grid.Column="2" Grid.Row="2" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.PasStopDelayMilliseconds, UpdateSourceTrigger=PropertyChanged}" />
 
 				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 8 0 0" Text="Keep Current (%):">
@@ -310,7 +353,7 @@
 
 		</StackPanel>
 
-		<StackPanel Grid.Column="2" Grid.Row="0">
+		<StackPanel Grid.Column="2" Grid.Row="1">
 
 			<Grid>
 
@@ -333,13 +376,13 @@
 
 				<TextBlock Grid.Row="0" Text="Features" FontSize="18" FontWeight="Bold" />
 
-				<TextBlock Grid.Column="0" Grid.Row="1" Margin="0 8 0 0" Text="Speed Sensor:" />
+				<TextBlock Grid.Column="0" Grid.Row="1" Margin="0 8 0 0" Text="Speed Sensor:" ToolTip="Tick if a wheel speed sensor is fitted. Speed limits, Rolling Start Delay, Launch Ramp, Gear Boost, Pretension and effort sensing's gear and ghost-pedalling checks all need it." />
 				<CheckBox Grid.Column="2" Grid.Row="1" Margin="0 8 0 0" HorizontalAlignment="Right"  IsChecked="{Binding ConfigVm.UseSpeedSensor, UpdateSourceTrigger=PropertyChanged}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 8 0 0" Text="Shift Sensor:" />
+				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 8 0 0" Text="Shift Sensor:" ToolTip="Tick if a gear shift sensor is fitted: motor power is cut briefly while you change gear, which is kinder to the chain and gears. See Shift Sensor below." />
 				<CheckBox Grid.Column="2" Grid.Row="2" Margin="0 8 0 0" HorizontalAlignment="Right"  IsChecked="{Binding ConfigVm.UseShiftSensor, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding ConfigVm.IsShiftSensorSupported}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 8 0 0" Text="Walk Mode:" />
+				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 8 0 0" Text="Walk Mode:" ToolTip="Allow walk assist, which moves the bike slowly while you walk beside it. Usually a long press of the display's minus button." />
 				<CheckBox Grid.Column="2" Grid.Row="3" Margin="0 8 0 0" HorizontalAlignment="Right"  IsChecked="{Binding ConfigVm.UsePushWalk, UpdateSourceTrigger=PropertyChanged}" />
 
 				<TextBlock Grid.Column="0" Grid.Row="4" Margin="0 8 0 0" Text="Temperature Sensor:">
@@ -423,10 +466,10 @@
 
 				<TextBlock Grid.Row="0" Text="Speed Sensor" FontSize="18" FontWeight="Bold" />
 
-				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 8 0 0" Text="Wheel Size (inch):" />
+				<TextBlock Grid.Column="0" Grid.Row="2" Margin="0 8 0 0" Text="Wheel Size (inch):" ToolTip="Wheel size, used to work out road speed: 29 for a 29er, 28 for 700C, 27.5 for 650B, 26 for 26 inch." />
 				<TextBox Grid.Column="2" Grid.Row="2" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.WheelSizeInch, UpdateSourceTrigger=LostFocus}" />
 
-				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 8 0 0" Text="Signals (per rotation):" />
+				<TextBlock Grid.Column="0" Grid.Row="3" Margin="0 8 0 0" Text="Signals (per rotation):" ToolTip="How many magnets on the wheel pass the speed sensor per turn. Usually 1." />
 				<TextBox Grid.Column="2" Grid.Row="3" Margin="0 8 0 0" Width="60" HorizontalAlignment="Right" Text="{Binding ConfigVm.SpeedSensorSignals, UpdateSourceTrigger=PropertyChanged}" />
 
 			</Grid>

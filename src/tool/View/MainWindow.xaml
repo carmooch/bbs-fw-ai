@@ -58,13 +58,19 @@
 				<vw:BenchView Margin="10" DataContext="{Binding BenchVm}" />
 			</TabItem>
 			<TabItem Header="System">
-				<vw:SystemView Margin="10" />
+				<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+					<vw:SystemView Margin="10" />
+				</ScrollViewer>
 			</TabItem>
 			<TabItem Header="Assist Levels">
-				<vw:AssistLevelsView Margin="10" DataContext="{Binding AssistLevelsVm}" />
+				<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+					<vw:AssistLevelsView Margin="10" DataContext="{Binding AssistLevelsVm}" />
+				</ScrollViewer>
 			</TabItem>
 			<TabItem Header="Calibration" DataContext="{Binding CalibrationVm}">
-				<vw:CalibrationView Margin="10" />
+				<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+					<vw:CalibrationView Margin="10" />
+				</ScrollViewer>
 			</TabItem>
 			<TabItem Header="Event Log" DataContext="{Binding EventLogVm}">
 				<vw:EventLogView Margin="10" />

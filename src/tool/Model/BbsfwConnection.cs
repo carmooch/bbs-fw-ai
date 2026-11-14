@@ -833,7 +833,8 @@ namespace BBSFW.Model
 
 		public SerialPortTransport(string name)
 		{
-			_port = new SerialPort(name, 1200);
+			// a write that can't finish fails instead of blocking for good
+			_port = new SerialPort(name, 1200) { WriteTimeout = 3000 };
 			_port.DataReceived += OnDataReceived;
 			_port.Open();
 		}

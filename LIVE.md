@@ -57,6 +57,11 @@ laptop. This isn't available to every account yet; the first way always works.
 - **Riding with the laptop** (in a backpack, short test loops) works, but the level only changes
   when the session changes it. Agree the level before you set off, and use the brake to cut the
   motor.
+- **If the USB cable's adapter stalls** (seen after the motor had worked hard: live data stops
+  while the link still looks connected), the link notices within about 10 s, says it lost the
+  controller and asks you to **unplug and replug the USB end of the cable**. Until then the
+  controller keeps the last level (the brakes still cut the motor). Once replugged, the link
+  reconnects by itself at level 0.
 
 ## Commands (for reference)
 

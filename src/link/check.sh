@@ -69,6 +69,21 @@ sleep 1
 check "marks reach the log" 'grep -q "test mark" "$work"/live/live-*.csv'
 check "live data logged" '[ "$(wc -l < "$(ls "$work"/live/live-*.csv)")" -gt 20 ]'
 
+# a USB-serial adapter that wedges (writes block, nothing comes back) while the
+# port still looks open: commands get an error instead of hanging, the link
+# says it's lost and to replug, and it reopens the port by itself at level 0
+"$link" test-wedge > /dev/null
+t0=$(date +%s)
+rc=0; timeout 60 "$link" level 0 > "$work/wedge.out" 2>&1 || rc=$?
+check "a command on a wedged port fails instead of hanging" '[ $rc -ne 0 ] && [ $rc -ne 124 ] && [ $(( $(date +%s) - t0 )) -lt 30 ]'
+check "it says the controller was lost" 'grep -qi "lost the controller" "$work/wedge.out"'
+check "the stall is reported, saying to replug" 'grep -q "lost the controller: .*replug the USB end" "$work"/live/events-*.log'
+for _ in $(seq 120); do [ "$(json status | field 'd.get("connected")')" = "True" ] && break; sleep 0.5; done
+sleep 2
+check "reconnects after the stall" '[ "$(json status | field "d[\"connected\"] and d[\"age_ms\"] < 2000")" = "True" ]'
+check "level 0 after reconnecting" '[ "$(json status | field "d[\"live\"][\"level\"]")" = "0" ]'
+check "commands work again" '[ "$(json config get LaunchSensing | field "d[\"settings\"][\"LaunchSensing\"]")" = "false" ]'
+
 "$link" stop > /dev/null
 sleep 2
 check "stop sets level 0" 'grep -q "stopping: level set to 0" "$work"/live/events-*.log'

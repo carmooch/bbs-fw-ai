@@ -1,5 +1,13 @@
 # bbs-fw-ai
 
+> [!WARNING]
+> **This is a personal project for one bike. Please don't flash it onto your motor.** It's
+> experimental, much of it has only been tested in a simulator, and it's tuned for one specific
+> setup. Flashing custom firmware can damage your controller, motor or battery, and it will likely
+> void your warranty. If you want custom firmware for a Bafang motor, use the original
+> [bbs-fw](https://github.com/danielnilsson9/bbs-fw). Everything here is shared as-is, with no
+> support and no warranty, for anyone curious about how it works.
+
 **Making a cadence-sensor BBSHD ride like a torque-sensing e-bike, through an AI-assisted rewrite
 of its firmware.**
 

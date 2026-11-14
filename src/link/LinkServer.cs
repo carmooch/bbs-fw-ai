@@ -585,6 +585,27 @@ namespace BBSFW.Link
 			}
 		}
 
+		// Reading the settings holds the port for a couple of seconds at 1200 baud,
+		// so live data is briefly older than Fresh() accepts. Give the poll loop a
+		// moment to bring in a new sample before checking, instead of refusing.
+		private async Task RequireStillSoon()
+		{
+			var until = DateTime.Now + TimeSpan.FromSeconds(5);
+			while (DateTime.Now < until)
+			{
+				RequireConnected();
+				lock (_lock)
+				{
+					if (_last != null && DateTime.Now - _lastAt <= TimeSpan.FromSeconds(2))
+					{
+						break;
+					}
+				}
+				await Task.Delay(100);
+			}
+			RequireStill();
+		}
+
 		private void RequireStill()
 		{
 			var s = Fresh();
@@ -985,7 +1006,7 @@ namespace BBSFW.Link
 			{
 				throw new Exception($"Refused: the controller's config version is {_configVersion}, this link writes version {Configuration.CurrentVersion}. Flash the matching firmware first.");
 			}
-			RequireStill();
+			await RequireStillSoon();
 
 			var backup = Path.Combine(_logDir, "backups", $"config-before-{Now()}.xml");
 			before.WriteToFile(backup);
@@ -1040,7 +1061,7 @@ namespace BBSFW.Link
 
 		private async Task<JsonObject> ResetEffort()
 		{
-			RequireStill();
+			await RequireStillSoon();
 			var r = await Exchange(c => c.ResetEffortPattern(TimeSpan.FromSeconds(5)), ConfigDeadline);
 			if (r.Timeout || !r.Result)
 			{
@@ -1056,7 +1077,7 @@ namespace BBSFW.Link
 			{
 				throw new Exception("Give the battery voltage you measured, 20-100 V.");
 			}
-			RequireStill();
+			await RequireStillSoon();
 			var r = await Exchange(c => c.CalibrateBatteryVoltage((float)volts, TimeSpan.FromSeconds(5)), ConfigDeadline);
 			if (r.Timeout || !r.Result)
 			{

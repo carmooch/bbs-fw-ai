@@ -28,12 +28,26 @@ namespace BBSFW.Link
 					var w = new StreamWriter(pipe, new UTF8Encoding(false)) { AutoFlush = true };
 					await w.WriteLineAsync("{\"cmd\":\"events\",\"count\":0}");
 					var r = new StreamReader(pipe, new UTF8Encoding(false));
-					return await r.ReadLineAsync() != null;
+					var read = r.ReadLineAsync();
+					// a server that's stuck still holds the pipe: count it as running
+					return await Task.WhenAny(read, Task.Delay(3000)) != read || await read != null;
 				}
 			}
 			catch (Exception)
 			{
 				return false;
+			}
+		}
+
+		// The server answers within its own deadlines (a stalled port ends in an
+		// error); this is the last resort, so a command never waits for good.
+		public static TimeSpan ReplyTimeout(JsonObject request)
+		{
+			switch ((string)request["cmd"])
+			{
+				case "watch": return TimeSpan.FromSeconds(((double?)request["seconds"] ?? 10) + 30);
+				case "capture": return TimeSpan.FromSeconds(200);
+				default: return TimeSpan.FromSeconds(90);
 			}
 		}
 
@@ -52,7 +66,13 @@ namespace BBSFW.Link
 				var w = new StreamWriter(pipe, new UTF8Encoding(false)) { AutoFlush = true };
 				await w.WriteLineAsync(request.ToJsonString());
 				var r = new StreamReader(pipe, new UTF8Encoding(false));
-				var line = await r.ReadLineAsync();
+				var read = r.ReadLineAsync();
+				var timeout = ReplyTimeout(request);
+				if (await Task.WhenAny(read, Task.Delay(timeout)) != read)
+				{
+					throw new Exception($"No answer from the bbs-link server in {timeout.TotalSeconds:0} s. bbs-link status shows the link's state; if the server itself is stuck, end it (Ctrl+C) and start it again.");
+				}
+				var line = await read;
 				if (line == null)
 				{
 					throw new Exception("The bbs-link server closed the connection without answering.");
@@ -187,6 +207,9 @@ Add --json to any command for the raw reply.";
 					return new JsonObject { ["cmd"] = "calibrate-voltage", ["volts"] = double.Parse(Arg(1, "the measured voltage"), c) };
 				case "stop":
 					return new JsonObject { ["cmd"] = "stop" };
+				case "test-wedge":
+					// src/link/check.sh, virtual controller only: not in the help
+					return new JsonObject { ["cmd"] = "test-wedge" };
 				case "config":
 					bool dry = Flag("--dry-run");
 					bool battery = Flag("--battery");

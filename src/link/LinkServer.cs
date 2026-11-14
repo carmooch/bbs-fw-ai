@@ -9,6 +9,15 @@
 // - every write is backed up first (undo with `config undo`) and read back;
 // - Max Current is capped (--max-amps), battery voltages only change with
 //   --battery, and the config tool's own limits apply.
+//
+// A USB-serial adapter can wedge (seen with a CH340 cable, shortly after the
+// motor had worked hard): a read or write blocks for good whatever its
+// timeouts say, while the port still looks open. So every exchange with the
+// controller runs against a deadline, and a watchdog checks how long it's been
+// since the last live sample or finished exchange. Either one declares the
+// link lost (saying to replug the USB end of the cable), closes the port in
+// the background (closing can block too) and opens it again, which sets
+// level 0 as on any connect. Commands get an error instead of waiting.
 
 using System;
 using System.Collections.Generic;
@@ -32,11 +41,47 @@ namespace BBSFW.Link
 		private readonly string _logDir;
 		private readonly uint _maxAmps;
 
-		private readonly SemaphoreSlim _io = new SemaphoreSlim(1, 1);
+		// a poll exchange (level, then live data with a 1.5 s timeout) normally takes well under 1 s
+		private static readonly TimeSpan PollDeadline = TimeSpan.FromSeconds(5);
+		// commands that write a few bytes (level, lights)
+		private static readonly TimeSpan ShortDeadline = TimeSpan.FromSeconds(5);
+		// settings read or write (10 s timeouts of their own)
+		private static readonly TimeSpan ConfigDeadline = TimeSpan.FromSeconds(15);
+		// the pedal sensor capture waits up to a minute for pedalling
+		private static readonly TimeSpan CaptureDeadline = TimeSpan.FromSeconds(150);
+		// no live sample and no finished exchange for this long, with the port open: stalled
+		private static readonly TimeSpan StallAfter = TimeSpan.FromSeconds(10);
+		// how long a command waits for its turn on the port
+		private static readonly TimeSpan TurnWait = TimeSpan.FromSeconds(20);
+		// opening the port, finding the controller and reading its settings
+		private static readonly TimeSpan ConnectDeadline = TimeSpan.FromSeconds(30);
+		private const string Replug = "unplug and replug the USB end of the cable";
+
 		private readonly CancellationTokenSource _stop = new CancellationTokenSource();
 		private readonly object _lock = new object();
 
-		private BbsfwConnection _conn;
+		// One open port and the controller on it. When it's lost, a wedged
+		// exchange may keep its turn for good: the next link gets a new one.
+		private sealed class Link
+		{
+			public readonly BbsfwConnection Conn;
+			public readonly SemaphoreSlim Turn = new SemaphoreSlim(1, 1);
+			public readonly CancellationTokenSource Dead = new CancellationTokenSource();
+			public readonly DateTime Since = DateTime.Now;
+			public long LastExchangeTicks = DateTime.Now.Ticks;
+			public long BusyUntilTicks;
+			public int Lost;
+			public string Why;
+
+			public Link(BbsfwConnection conn)
+			{
+				Conn = conn;
+			}
+		}
+
+		private volatile Link _link;
+		private int _attempt;
+		private string _hint = "";
 		private volatile bool _connected;
 		private string _firmware = "";
 		private int _configVersion;
@@ -90,12 +135,14 @@ namespace BBSFW.Link
 
 			if (_portName.StartsWith("/dev/pts/", StringComparison.Ordinal))
 			{
-				BbsfwConnection.OpenTransport = p => new PtyTransport(p.Name);
+				// the virtual controller: test-wedge can stall it like a wedged adapter
+				BbsfwConnection.OpenTransport = p => WedgeTransport.Current = new WedgeTransport(new PtyTransport(p.Name));
 			}
 
 			Console.CancelKeyPress += (s, e) => { e.Cancel = true; _stop.Cancel(); };
 
 			var pipes = Task.Run(ServePipe);
+			_ = Task.Run(Watchdog);
 			if (_webPort > 0)
 			{
 				_webUrl = LiveDashboard.Start(this, _webPort, _stop.Token);
@@ -124,7 +171,7 @@ namespace BBSFW.Link
 			{
 				if (!_connected)
 				{
-					if (!await TryConnect())
+					if (!await Connect())
 					{
 						await Task.Delay(1000, _stop.Token);
 					}
@@ -132,33 +179,33 @@ namespace BBSFW.Link
 					continue;
 				}
 
+				var link = _link;
 				ControllerStatus status = null;
-				await _io.WaitAsync(_stop.Token);
 				try
 				{
-					if (_connected && DateTime.Now - _levelSentAt > TimeSpan.FromSeconds(2))
+					// waits behind any command for its turn; a wedged command ends the link and this wait
+					status = await Exchange(async c =>
 					{
-						// as a display does: keep telling the controller the level
-						_conn.SetAssistLevel(_desiredLevel);
-						_levelSentAt = DateTime.Now;
-					}
-					var r = await _conn.ReadStatus(TimeSpan.FromMilliseconds(1500));
-					status = r.Timeout ? null : r.Result;
+						if (DateTime.Now - _levelSentAt > TimeSpan.FromSeconds(2))
+						{
+							// as a display does: keep telling the controller the level
+							c.SetAssistLevel(_desiredLevel);
+							_levelSentAt = DateTime.Now;
+						}
+						var r = await c.ReadStatus(TimeSpan.FromMilliseconds(1500));
+						return r.Timeout ? null : r.Result;
+					}, PollDeadline, Timeout.InfiniteTimeSpan);
 				}
 				catch (Exception)
 				{
 					status = null;
 				}
-				finally
-				{
-					_io.Release();
-				}
 
 				if (status == null)
 				{
-					if (++misses >= 6)
+					if (++misses >= 6 && _link == link)
 					{
-						Lost("no answer for several seconds (controller off or cable out?)");
+						LostLink(link, "no answer for several seconds (controller off or cable out? If it's on, " + Replug + ")", false);
 					}
 				}
 				else
@@ -172,9 +219,32 @@ namespace BBSFW.Link
 			}
 		}
 
-		private async Task<bool> TryConnect()
+		// TryConnect with a deadline: opening a wedged adapter can block too
+		private async Task<bool> Connect()
 		{
-			_state = "connecting to " + _portName;
+			int attempt = Interlocked.Increment(ref _attempt);
+			var work = Task.Run(() => TryConnect(attempt));
+			var timer = Task.Delay(ConnectDeadline, _stop.Token);
+			if (await Task.WhenAny(work, timer) == work)
+			{
+				return await work;
+			}
+			lock (_lock)
+			{
+				// the abandoned attempt mustn't take over if it ever finishes
+				_attempt++;
+			}
+			if (!_stop.IsCancellationRequested)
+			{
+				_state = $"opening {_portName} hung for {ConnectDeadline.TotalSeconds:0} s: the USB-serial adapter has probably stalled; {Replug}";
+				AddEvent(_state);
+			}
+			return false;
+		}
+
+		private async Task<bool> TryConnect(int attempt)
+		{
+			_state = "connecting to " + _portName + _hint;
 			var conn = new BbsfwConnection();
 			int configVersion = 0;
 			conn.EventLog += e => AddEvent(e.Message);
@@ -183,45 +253,153 @@ namespace BBSFW.Link
 			{
 				if (!await conn.Connect(new ComPort(_portName, ""), TimeSpan.FromSeconds(4)))
 				{
-					_state = "waiting for the controller on " + _portName + " (switched on? cable in?)";
+					_state = "waiting for the controller on " + _portName + " (switched on? cable in?)" + _hint;
 					return false;
 				}
 			}
 			catch (Exception ex)
 			{
-				_state = $"can't open {_portName}: {ex.Message}";
+				_state = $"can't open {_portName}: {ex.Message}" + _hint;
 				return false;
 			}
 
-			_conn = conn;
-			_firmware = conn.FirmwareVersion?.ToString() ?? "?";
 			var cfg = await conn.ReadConfiguration(TimeSpan.FromSeconds(10));
 			if (cfg.Timeout || cfg.Result == null)
 			{
 				conn.Close();
-				_state = "connected, but the controller didn't send its settings";
+				_state = "connected, but the controller didn't send its settings" + _hint;
 				return false;
 			}
-			_config = cfg.Result;
-			_configVersion = configVersion;
-			_config.WriteToFile(Path.Combine(_logDir, "backups", $"config-at-connect-{Now()}.xml"));
-
-			_desiredLevel = 0;
 			conn.SetAssistLevel(0);
-			_levelSentAt = DateTime.Now;
-			_connected = true;
-			_since = DateTime.Now;
-			_state = "connected";
+
+			lock (_lock)
+			{
+				if (attempt != _attempt)
+				{
+					// Connect gave up on this attempt
+					_ = Task.Run(() => { try { conn.Close(); } catch { } });
+					return false;
+				}
+				_link = new Link(conn);
+				_firmware = conn.FirmwareVersion?.ToString() ?? "?";
+				_config = cfg.Result;
+				_configVersion = configVersion;
+				_desiredLevel = 0;
+				_levelSentAt = DateTime.Now;
+				_connected = true;
+				_since = DateTime.Now;
+				_state = "connected";
+				_hint = "";
+			}
+			_config.WriteToFile(Path.Combine(_logDir, "backups", $"config-at-connect-{Now()}.xml"));
 			AddEvent($"connected: bbs-fw {_firmware}, {conn.ControllerType}, config version {_configVersion}; level set to 0");
 			return true;
 		}
 
-		private void Lost(string why)
+		// The link is finished with: say why, close the port (in the background:
+		// on a wedged adapter that can block as well) and let PollLoop reconnect.
+		private void LostLink(Link link, string why, bool stalled)
 		{
-			_connected = false;
-			try { _conn?.Close(); } catch { }
+			if (link == null || Interlocked.Exchange(ref link.Lost, 1) != 0)
+			{
+				return;
+			}
+			link.Why = why;
+			lock (_lock)
+			{
+				if (_link == link)
+				{
+					_connected = false;
+					if (stalled)
+					{
+						_hint = "; after a stall, " + Replug;
+					}
+				}
+			}
 			_state = "lost the controller: " + why;
 			AddEvent(_state);
+			link.Dead.Cancel();
+			_ = Task.Run(() => { try { link.Conn.Close(); } catch { } });
+		}
+
+		// One exchange with the controller: waits for its turn on the port (up
+		// to `wait`), then runs against `deadline`, timed independently of the
+		// port's own timeouts. A wedged exchange ends the link.
+		private async Task<T> Exchange<T>(Func<BbsfwConnection, Task<T>> f, TimeSpan deadline, TimeSpan? wait = null)
+		{
+			var link = _link;
+			if (link == null || !_connected || link.Lost != 0)
+			{
+				throw new Exception("Not connected: " + _state);
+			}
+			var turnWait = wait ?? TurnWait;
+			bool got;
+			try
+			{
+				got = await link.Turn.WaitAsync(turnWait, link.Dead.Token);
+			}
+			catch (OperationCanceledException)
+			{
+				throw new Exception("Lost the controller: " + link.Why);
+			}
+			if (!got)
+			{
+				throw new Exception($"The port is busy: another exchange with the controller has had it for over {turnWait.TotalSeconds:0} s. Try again (bbs-link status shows the link's state).");
+			}
+
+			Interlocked.Exchange(ref link.BusyUntilTicks, (DateTime.Now + deadline).Ticks);
+			var work = Task.Run(() => f(link.Conn));
+			var timer = Task.Delay(deadline, link.Dead.Token);
+			if (await Task.WhenAny(work, timer) != work)
+			{
+				// the turn stays taken: this link is finished with
+				LostLink(link, $"an exchange with the controller didn't finish in {deadline.TotalSeconds:0} s: the USB-serial adapter has probably stalled; {Replug}", true);
+				throw new Exception("Lost the controller: " + link.Why);
+			}
+			Interlocked.Exchange(ref link.LastExchangeTicks, DateTime.Now.Ticks);
+			Interlocked.Exchange(ref link.BusyUntilTicks, 0);
+			link.Turn.Release();
+			return await work;
+		}
+
+		private Task Exchange(Action<BbsfwConnection> f, TimeSpan deadline, TimeSpan? wait = null)
+		{
+			return Exchange(c => { f(c); return Task.FromResult(true); }, deadline, wait);
+		}
+
+		// Independent of the exchanges themselves: the port is open but nothing
+		// has come back for a while, and nothing in progress may take that long.
+		private async Task Watchdog()
+		{
+			while (!_stop.IsCancellationRequested)
+			{
+				try
+				{
+					await Task.Delay(500, _stop.Token);
+				}
+				catch (OperationCanceledException)
+				{
+					return;
+				}
+				var link = _link;
+				if (link == null || !_connected || link.Lost != 0)
+				{
+					continue;
+				}
+				DateTime last;
+				lock (_lock)
+				{
+					last = _lastAt;
+				}
+				var exchanged = new DateTime(Interlocked.Read(ref link.LastExchangeTicks));
+				if (exchanged > last) last = exchanged;
+				if (link.Since > last) last = link.Since;
+				var now = DateTime.Now;
+				if (now - last > StallAfter && now.Ticks > Interlocked.Read(ref link.BusyUntilTicks))
+				{
+					LostLink(link, $"no live data for {(now - last).TotalSeconds:0} s though the port is open: the USB-serial adapter has probably stalled; {Replug}", true);
+				}
+			}
 		}
 
 		private void Record(ControllerStatus s)
@@ -281,23 +459,25 @@ namespace BBSFW.Link
 
 		private async Task ShutDown()
 		{
-			if (_connected)
+			var link = _link;
+			if (_connected && link != null)
 			{
-				await _io.WaitAsync();
+				_desiredLevel = 0;
 				try
 				{
-					_desiredLevel = 0;
-					_conn.SetAssistLevel(0);
+					await Exchange(c => c.SetAssistLevel(0), ShortDeadline, TimeSpan.FromSeconds(10));
 					await Task.Delay(300);
 					AddEvent("stopping: level set to 0");
-					_conn.Close();
 				}
-				catch
+				catch (Exception ex)
 				{
+					AddEvent($"stopping: couldn't send level 0 ({ex.Message}); the controller keeps its level until it's switched off or the cable is replugged");
 				}
-				finally
+				if (link.Lost == 0)
 				{
-					_io.Release();
+					// closing can block on a wedged adapter: don't wait for long
+					var close = Task.Run(() => { try { link.Conn.Close(); } catch { } });
+					await Task.WhenAny(close, Task.Delay(3000));
 				}
 			}
 			_connected = false;
@@ -378,6 +558,7 @@ namespace BBSFW.Link
 				case "events": return Events((int?)q["count"] ?? 30);
 				case "mark": Mark((string)q["text"]); AddEvent("note: " + (string)q["text"]); return new JsonObject { ["text"] = "marked in the log" };
 				case "stop": _stop.Cancel(); return new JsonObject { ["text"] = "stopping: level 0, port closed" };
+				case "test-wedge": return TestWedge();
 			}
 			throw new Exception($"unknown command '{cmd}'");
 		}
@@ -652,17 +833,12 @@ namespace BBSFW.Link
 				throw new Exception("Level must be 0-9 (walk mode isn't offered here).");
 			}
 			RequireConnected();
-			await _io.WaitAsync();
-			try
+			await Exchange(c =>
 			{
 				_desiredLevel = level;
-				_conn.SetAssistLevel(level);
+				c.SetAssistLevel(level);
 				_levelSentAt = DateTime.Now;
-			}
-			finally
-			{
-				_io.Release();
-			}
+			}, ShortDeadline);
 			Mark($"level {level}");
 			AddEvent($"level set to {level}");
 			return new JsonObject { ["text"] = $"Assist level {level}." };
@@ -671,35 +847,26 @@ namespace BBSFW.Link
 		private async Task<JsonObject> SetLights(bool on)
 		{
 			RequireConnected();
-			await _io.WaitAsync();
-			try
-			{
-				_conn.SetLights(on);
-			}
-			finally
-			{
-				_io.Release();
-			}
+			await Exchange(c => c.SetLights(on), ShortDeadline);
 			return new JsonObject { ["text"] = on ? "Lights on." : "Lights off." };
 		}
 
-		private async Task<T> Exclusive<T>(Func<Task<T>> f)
+		// simulator only (src/link/check.sh): the port stalls as a wedged adapter does
+		private JsonObject TestWedge()
 		{
+			if (!_portName.StartsWith("/dev/pts/", StringComparison.Ordinal))
+			{
+				throw new Exception("test-wedge only works on the virtual controller's port.");
+			}
 			RequireConnected();
-			await _io.WaitAsync();
-			try
-			{
-				return await f();
-			}
-			finally
-			{
-				_io.Release();
-			}
+			(WedgeTransport.Current ?? throw new Exception("No port open.")).Wedge();
+			AddEvent("test: the port stops passing data, as a wedged USB-serial adapter does");
+			return new JsonObject { ["text"] = "The virtual controller's port is wedged until bbs-link reopens it." };
 		}
 
 		private async Task<Configuration> ReadConfig()
 		{
-			var r = await Exclusive(() => _conn.ReadConfiguration(TimeSpan.FromSeconds(10)));
+			var r = await Exchange(c => c.ReadConfiguration(TimeSpan.FromSeconds(10)), ConfigDeadline);
 			if (r.Timeout || r.Result == null)
 			{
 				throw new Exception("The controller didn't send its settings.");
@@ -823,7 +990,7 @@ namespace BBSFW.Link
 			var backup = Path.Combine(_logDir, "backups", $"config-before-{Now()}.xml");
 			before.WriteToFile(backup);
 
-			var w = await Exclusive(() => _conn.WriteConfiguration(after, TimeSpan.FromSeconds(10)));
+			var w = await Exchange(c => c.WriteConfiguration(after, TimeSpan.FromSeconds(10)), ConfigDeadline);
 			if (w.Timeout || !w.Result)
 			{
 				throw new Exception("The controller didn't accept the settings (" + (w.Timeout ? "no answer" : "refused") + "). Backup: " + backup);
@@ -852,7 +1019,7 @@ namespace BBSFW.Link
 		private async Task<JsonObject> Capture()
 		{
 			RequireConnected();
-			var result = await Exclusive(() => PasCaptureSession.Run(_conn, null, _stop.Token));
+			var result = await Exchange(c => PasCaptureSession.Run(c, null, _stop.Token), CaptureDeadline);
 			if (!result.ok)
 			{
 				throw new Exception(result.message);
@@ -874,7 +1041,7 @@ namespace BBSFW.Link
 		private async Task<JsonObject> ResetEffort()
 		{
 			RequireStill();
-			var r = await Exclusive(() => _conn.ResetEffortPattern(TimeSpan.FromSeconds(5)));
+			var r = await Exchange(c => c.ResetEffortPattern(TimeSpan.FromSeconds(5)), ConfigDeadline);
 			if (r.Timeout || !r.Result)
 			{
 				throw new Exception("The controller didn't reset the learned pattern.");
@@ -890,7 +1057,7 @@ namespace BBSFW.Link
 				throw new Exception("Give the battery voltage you measured, 20-100 V.");
 			}
 			RequireStill();
-			var r = await Exclusive(() => _conn.CalibrateBatteryVoltage((float)volts, TimeSpan.FromSeconds(5)));
+			var r = await Exchange(c => c.CalibrateBatteryVoltage((float)volts, TimeSpan.FromSeconds(5)), ConfigDeadline);
 			if (r.Timeout || !r.Result)
 			{
 				throw new Exception("The controller didn't take the calibration.");

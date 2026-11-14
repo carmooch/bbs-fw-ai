@@ -42,7 +42,10 @@ owner reads it there. It is read-only and only reachable from the laptop.
 
 **Working:** `status` for a glance, `watch N` for N seconds of data (rows are averages; every
 sample is in the CSV log), `mark "..."` to note in the log what the owner is about to do,
-`events` for the controller's event log.
+`events` for the controller's event log. If `status` or a command says the controller was lost
+because the USB-serial adapter stalled, tell the owner straight away (the controller keeps its last
+level until the link is back; the brakes still cut the motor) and ask them to unplug and replug the
+USB end of the cable; bbs-link reconnects by itself at level 0.
 
 **Rules for the session** (bbs-link enforces the ones marked *, the rest are yours):
 

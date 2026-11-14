@@ -1,0 +1,27 @@
+<!--
+  bbs-link: a live link to the controller for a Claude session on the
+  laptop (see LIVE.md). Reuses the config tool's protocol and config code.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>BBSFW.Link</RootNamespace>
+    <AssemblyName>bbs-link</AssemblyName>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS8632;CA1416</NoWarn>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>2.3.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="5.0.0" />
+    <PackageReference Include="System.Management" Version="6.0.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
+    <Compile Include="../tool/Model/*.cs" />
+    <Compile Include="../tool/Properties/Settings.Designer.cs" />
+    <Compile Include="../tool-check/PtyTransport.cs" />
+    <Compile Include="*.cs" />
+  </ItemGroup>
+</Project>

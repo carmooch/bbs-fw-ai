@@ -113,6 +113,9 @@ jobs:
       - name: Config tool against the firmware (layout, bench, flash wizard)
         run: src/tool-check/check.sh
 
+      - name: Live link (bbs-link) against a virtual controller
+        run: src/link/check.sh
+
   config-tool:
     name: Config tool (Windows)
     runs-on: windows-latest
@@ -149,9 +152,21 @@ jobs:
           ($v -join '.') | Set-Content -NoNewline publish/flash/version.txt
           Copy-Item src/tool/flash/STCGAL-LICENSE.txt publish/flash/
 
+      # bbs-link: the live link for a Claude session on the laptop (LIVE.md),
+      # one self-contained exe, no .NET install needed
+      - name: Bundle bbs-link
+        shell: pwsh
+        run: |
+          dotnet publish src/link/bbs-link.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish/link
+          Remove-Item publish/link/*.pdb
+          Copy-Item CLAUDE.md, LIVE.md publish/link/
+
       - name: Check the bundle
         shell: pwsh
         run: |
+          $help = & publish/link/bbs-link.exe help
+          if (-not ($help -match 'live link')) { throw "bbs-link.exe: $help" }
+          & publish/link/bbs-link.exe ports
           $out = & publish/flash/stcgal.exe -V
           if ($out -notmatch 'stcgal 1\.10') { throw "stcgal.exe: $out" }
           $v = Get-Content publish/flash/version.txt

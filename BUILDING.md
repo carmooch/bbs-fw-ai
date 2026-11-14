@@ -147,6 +147,20 @@ reference assemblies, then:
 .NET's `SerialPort` can't open a pseudo-terminal, so the tests use `BbsfwConnection.OpenTransport`
 to read and write it as a file instead. Everything above the transport is the code the tool runs.
 
+## Live link (bbs-link)
+
+`src/link` is `bbs-link`, a command-line live link to the controller for a Claude session on the
+laptop ([LIVE.md](LIVE.md)). It compiles the config tool's `Model` code (protocol, settings,
+pedal sensor capture) into a console program: `bbs-link serve` holds the serial port, polls live
+data into a CSV log and takes commands from `bbs-link <command>` over a local named pipe. CI
+publishes it as one self-contained `link/bbs-link.exe` in the BBSFWTool download, with
+`CLAUDE.md` and `LIVE.md`.
+
+`src/link/check.sh` (Linux, dotnet 8, gcc) runs it against a virtual controller
+(`ride_sim sim/live.sim --serial`): connecting sets level 0, live data and logging, levels, a
+pedal sensor capture, every settings safety rule (bike still, current cap, battery voltages,
+the config tool's limits), dry run, undo, and level 0 on `stop`.
+
 ## Line endings
 
 Upstream files are a mix of CRLF and LF. Keep each file's existing line endings:
@@ -160,5 +174,6 @@ Upstream files are a mix of CRLF and LF. Keep each file's existing line endings:
 - Runs the unit tests and every ride scenario. Scenario results go in the run summary, and the
   CSVs and plots are uploaded as the `ride-sim` artifact.
 - Runs the torque-feel benchmark; its table goes in the run summary, and it fails under 50 points.
-- Checks the config tool against the firmware's config layout, and publishes the tool.
+- Checks the config tool against the firmware's config layout and bbs-link against a virtual
+  controller, and publishes the tool with bbs-link.
 - Runs the line-ending check.

@@ -43,6 +43,10 @@ laptop. This isn't available to every account yet; the first way always works.
 - **Settings only change with the bike still**: no pedalling, wheel stopped, throttle closed.
   Every change is backed up first and read back after; `config undo` puts the previous settings
   back. Max Current can't go over 30 A, and battery voltages only change on purpose.
+- **You see it live** at `http://localhost:8710` in a browser on the laptop, while the link runs:
+  big readings (level, cadence, speed, motor current, battery, your effort), rolling charts of the
+  last 30 s to 3 min with brake pulls and level changes marked, and a feed of what the session is
+  doing and why. It only shows things; it can't change anything, and only the laptop can open it.
 - **Everything is logged** to `live\` (live data about 4 times a second, events, settings
   backups). It stays on the laptop; nothing from it goes into the repository.
 - **Effort sensing doesn't learn while the link reads live data**, until the controller is switched

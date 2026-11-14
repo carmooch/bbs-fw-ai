@@ -56,11 +56,20 @@ namespace BBSFW.Link
 		private readonly Stack<string> _undo = new Stack<string>();
 		private readonly List<List<ControllerStatus>> _watchers = new List<List<ControllerStatus>>();
 
-		public LinkServer(string portName, string logDir, uint maxAmps)
+		// recent readings and events for the live dashboard, numbered in one sequence
+		private long _seq;
+		private readonly Queue<(long seq, JsonObject row)> _recent = new Queue<(long, JsonObject)>();
+		private readonly Queue<(long seq, string text)> _recentEvents = new Queue<(long, string)>();
+		private const int RecentSamples = 1500;
+		private readonly int _webPort;
+		private string _webUrl;
+
+		public LinkServer(string portName, string logDir, uint maxAmps, int webPort = 0)
 		{
 			_portName = portName;
 			_logDir = Path.GetFullPath(logDir);
 			_maxAmps = maxAmps;
+			_webPort = webPort;
 		}
 
 		private static string Now() => DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
@@ -87,7 +96,12 @@ namespace BBSFW.Link
 			Console.CancelKeyPress += (s, e) => { e.Cancel = true; _stop.Cancel(); };
 
 			var pipes = Task.Run(ServePipe);
-			Console.WriteLine($"bbs-link serving {_portName}; log {_csvPath}");
+			if (_webPort > 0)
+			{
+				_webUrl = LiveDashboard.Start(this, _webPort, _stop.Token);
+				AddEvent(_webUrl != null ? "live dashboard at " + _webUrl : $"live dashboard: port {_webPort} is in use, not started");
+			}
+			Console.WriteLine($"bbs-link serving {_portName}; log {_csvPath}" + (_webUrl != null ? "; live dashboard " + _webUrl : ""));
 
 			try
 			{
@@ -223,6 +237,11 @@ namespace BBSFW.Link
 				{
 					w.Add(s);
 				}
+				_recent.Enqueue((++_seq, WebRow(s)));
+				while (_recent.Count > RecentSamples)
+				{
+					_recent.Dequeue();
+				}
 			}
 			var c = CultureInfo.InvariantCulture;
 			_csv.WriteLine(s.ToCsv() + "," + Speed(s).ToString("0.0", c) + "," +
@@ -242,6 +261,11 @@ namespace BBSFW.Link
 				if (_events.Count > 200)
 				{
 					_events.RemoveAt(0);
+				}
+				_recentEvents.Enqueue((++_seq, line));
+				while (_recentEvents.Count > 200)
+				{
+					_recentEvents.Dequeue();
 				}
 			}
 			_eventsLog?.WriteLine(line);
@@ -352,7 +376,7 @@ namespace BBSFW.Link
 				case "reset-effort": return await ResetEffort();
 				case "calibrate-voltage": return await CalibrateVoltage((double)q["volts"]);
 				case "events": return Events((int?)q["count"] ?? 30);
-				case "mark": Mark((string)q["text"]); return new JsonObject { ["text"] = "marked in the log" };
+				case "mark": Mark((string)q["text"]); AddEvent("note: " + (string)q["text"]); return new JsonObject { ["text"] = "marked in the log" };
 				case "stop": _stop.Cancel(); return new JsonObject { ["text"] = "stopping: level 0, port closed" };
 			}
 			throw new Exception($"unknown command '{cmd}'");
@@ -411,9 +435,14 @@ namespace BBSFW.Link
 				["config_version"] = _configVersion,
 				["level_set"] = _desiredLevel,
 				["log"] = _csvPath,
+				["dashboard"] = _webUrl,
 			};
 			var sb = new StringBuilder();
 			sb.AppendLine($"{_state}; bbs-fw {_firmware}; level set to {_desiredLevel}; log {_csvPath}");
+			if (_webUrl != null)
+			{
+				sb.AppendLine("live dashboard: " + _webUrl);
+			}
 			if (s != null)
 			{
 				var age = (DateTime.Now - at).TotalMilliseconds;
@@ -424,6 +453,67 @@ namespace BBSFW.Link
 			}
 			o["text"] = sb.ToString().TrimEnd();
 			return o;
+		}
+
+		// one reading for the dashboard: short keys, it's sent several times a second
+		private JsonObject WebRow(ControllerStatus s)
+		{
+			return new JsonObject
+			{
+				["ms"] = new DateTimeOffset(s.Time).ToUnixTimeMilliseconds(),
+				["level"] = s.AssistLevel,
+				["cad"] = Math.Round(s.CadenceRpm, 1),
+				["kph"] = Math.Round(Speed(s), 1),
+				["cur"] = s.TargetCurrentPercent,
+				["amps"] = Math.Round(s.BatteryAmps, 1),
+				["volts"] = Math.Round(s.BatteryVolts, 1),
+				["watts"] = Math.Round(s.BatteryVolts * s.BatteryAmps),
+				["bpct"] = s.BatteryPercent,
+				["rider"] = s.RiderWatts,
+				["ev"] = s.EffortValid,
+				["learned"] = s.EffortLearnedPercent,
+				["thr"] = s.ThrottlePercent,
+				["temp"] = s.TemperatureC,
+				["status"] = StatusName(s.StatusCode),
+				["ped"] = s.PedalingForwards,
+				["brake"] = s.Brake,
+				["moving"] = s.WheelMoving,
+			};
+		}
+
+		// what the dashboard asks for: the state, and readings and events after `since`
+		public JsonObject LiveSince(long since)
+		{
+			var samples = new JsonArray();
+			var events = new JsonArray();
+			long seq;
+			DateTime at;
+			lock (_lock)
+			{
+				seq = _seq;
+				at = _lastAt;
+				foreach (var (n, row) in _recent.Where(r => r.seq > since))
+				{
+					var copy = row.DeepClone().AsObject();
+					copy["seq"] = n;
+					samples.Add(copy);
+				}
+				foreach (var (n, text) in _recentEvents.Where(e => e.seq > since).TakeLast(50))
+				{
+					events.Add(new JsonObject { ["seq"] = n, ["text"] = text });
+				}
+			}
+			return new JsonObject
+			{
+				["connected"] = _connected,
+				["state"] = _state,
+				["firmware"] = _firmware,
+				["level_set"] = _desiredLevel,
+				["age_ms"] = at == DateTime.MinValue ? null : (int)(DateTime.Now - at).TotalMilliseconds,
+				["seq"] = seq,
+				["samples"] = samples,
+				["events"] = events,
+			};
 		}
 
 		private JsonObject Row(ControllerStatus s, double t)

@@ -34,7 +34,11 @@ from the address you were given) into the working folder, check them with
 **Starting:** `bbs-link ports`, then run `bbs-link serve --port COMn` as a background process (it
 holds the port until `bbs-link stop`). `bbs-link status` shows when it's connected. It sets level 0
 on connecting. If it waits for the controller, ask the owner to switch the battery on, or to unplug
-and replug the cable.
+and replug the cable. Once connected, tell the owner to open the live dashboard,
+`http://localhost:8710` in a browser on the laptop: it shows the readings live (several times a
+second, rolling charts with brake pulls and level changes marked) and a feed of what you do (level
+changes, settings written, your `mark` notes). Use `mark` to say what you're doing and why: the
+owner reads it there. It is read-only and only reachable from the laptop.
 
 **Working:** `status` for a glance, `watch N` for N seconds of data (rows are averages; every
 sample is in the CSV log), `mark "..."` to note in the log what the owner is about to do,

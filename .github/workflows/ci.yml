@@ -167,6 +167,16 @@ jobs:
           $help = & publish/link/bbs-link.exe help
           if (-not ($help -match 'live link')) { throw "bbs-link.exe: $help" }
           & publish/link/bbs-link.exe ports
+          # with no controller on the port it keeps waiting, but the dashboard and
+          # the command pipe must work on Windows as they do in the Linux check
+          $srv = Start-Process publish/link/bbs-link.exe -ArgumentList 'serve','--port','COM99','--log-dir',"$env:RUNNER_TEMP/live" -PassThru -NoNewWindow
+          Start-Sleep -Seconds 4
+          $page = (Invoke-WebRequest -UseBasicParsing http://localhost:8710/).Content
+          if (-not ($page -match 'BBSHD Live')) { throw "dashboard not served" }
+          $status = & publish/link/bbs-link.exe status
+          if (-not ($status -match 'COM99')) { throw "bbs-link status: $status" }
+          & publish/link/bbs-link.exe stop
+          if (-not $srv.WaitForExit(10000)) { $srv.Kill(); throw "bbs-link serve didn't stop" }
           $out = & publish/flash/stcgal.exe -V
           if ($out -notmatch 'stcgal 1\.10') { throw "stcgal.exe: $out" }
           $v = Get-Content publish/flash/version.txt

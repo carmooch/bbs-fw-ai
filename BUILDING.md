@@ -152,14 +152,17 @@ to read and write it as a file instead. Everything above the transport is the co
 `src/link` is `bbs-link`, a command-line live link to the controller for a Claude session on the
 laptop ([LIVE.md](LIVE.md)). It compiles the config tool's `Model` code (protocol, settings,
 pedal sensor capture) into a console program: `bbs-link serve` holds the serial port, polls live
-data into a CSV log and takes commands from `bbs-link <command>` over a local named pipe. CI
+data into a CSV log, takes commands from `bbs-link <command>` over a local named pipe, and serves
+a read-only live dashboard (`dashboard.html`, built in) at `http://localhost:8710` (`--web PORT`,
+`--no-web`). CI
 publishes it as one self-contained `link/bbs-link.exe` in the BBSFWTool download, with
 `CLAUDE.md` and `LIVE.md`.
 
 `src/link/check.sh` (Linux, dotnet 8, gcc) runs it against a virtual controller
 (`ride_sim sim/live.sim --serial`): connecting sets level 0, live data and logging, levels, a
 pedal sensor capture, every settings safety rule (bike still, current cap, battery voltages,
-the config tool's limits), dry run, undo, and level 0 on `stop`.
+the config tool's limits), dry run, undo, the live dashboard (served, live, read-only), and
+level 0 on `stop`.
 
 ## Line endings
 

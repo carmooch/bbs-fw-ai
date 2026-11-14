@@ -23,5 +23,6 @@
     <Compile Include="../tool/Properties/Settings.Designer.cs" />
     <Compile Include="../tool-check/PtyTransport.cs" />
     <Compile Include="*.cs" />
+    <EmbeddedResource Include="dashboard.html" LogicalName="dashboard.html" />
   </ItemGroup>
 </Project>

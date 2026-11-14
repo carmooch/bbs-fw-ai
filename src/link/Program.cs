@@ -67,9 +67,11 @@ namespace BBSFW.Link
 		private const string Usage = @"bbs-link: live link to a bbs-fw controller (see LIVE.md)
 
   bbs-link ports                         list serial ports
-  bbs-link serve --port COM5 [--log-dir DIR] [--max-amps 30]
+  bbs-link serve --port COM5 [--log-dir DIR] [--max-amps 30] [--web 8710 | --no-web]
                                          hold the link: run this in its own terminal (or in the
                                          background); it logs live data to DIR (default ./live)
+                                         and shows it live at http://localhost:8710 (this
+                                         computer only)
   bbs-link status                        connection and the latest live data
   bbs-link watch [SECONDS]               live data for a while (default 10, max 120), as a table
   bbs-link level N                       assist level 0-9, as the display would set it
@@ -114,7 +116,8 @@ Add --json to any command for the raw reply.";
 						var port = Option(args, "--port") ?? throw new Exception("serve needs --port (bbs-link ports lists them)");
 						var logDir = Option(args, "--log-dir") ?? "live";
 						var maxAmps = uint.Parse(Option(args, "--max-amps") ?? "30", CultureInfo.InvariantCulture);
-						return await new LinkServer(port, logDir, maxAmps).Run();
+						var web = args.Remove("--no-web") ? 0 : int.Parse(Option(args, "--web") ?? "8710", CultureInfo.InvariantCulture);
+						return await new LinkServer(port, logDir, maxAmps, web).Run();
 				}
 
 				var request = Request(args);

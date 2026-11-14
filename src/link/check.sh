@@ -61,6 +61,10 @@ check "undo" '"$link" config undo > /dev/null'
 check "undo took" '[ "$(json config get LaunchSensing "StandardAssistLevels[3].MaxCurrentPercent" | field "list(d[\"settings\"].values())")" = "['"'"'false'"'"', '"'"'14'"'"']" ]'
 check "backups kept" '[ "$(ls "$work/live/backups" | wc -l)" -ge 2 ]'
 "$link" mark "test mark" > /dev/null
+check "dashboard page served" 'curl -fs http://localhost:8710/ | grep -q "BBSHD Live"'
+check "dashboard has live readings" '[ "$(curl -fs "http://localhost:8710/data?since=0" | field "len(d[\"samples\"]) > 20 and d[\"connected\"]")" = "True" ]'
+check "dashboard shows what Claude did" 'curl -fs "http://localhost:8710/data?since=0" | grep -q "note: test mark"'
+check "dashboard is read-only" '[ "$(curl -s -o /dev/null -w "%{http_code}" -X POST -d level=9 http://localhost:8710/data)" = "405" ]'
 sleep 1
 check "marks reach the log" 'grep -q "test mark" "$work"/live/live-*.csv'
 check "live data logged" '[ "$(wc -l < "$(ls "$work"/live/live-*.csv)")" -gt 20 ]'
@@ -69,6 +73,7 @@ check "live data logged" '[ "$(wc -l < "$(ls "$work"/live/live-*.csv)")" -gt 20 
 sleep 2
 check "stop sets level 0" 'grep -q "stopping: level set to 0" "$work"/live/events-*.log'
 check "server gone after stop" '! "$link" status > /dev/null 2>&1'
+check "dashboard gone after stop" '! curl -fs http://localhost:8710/ > /dev/null'
 
 echo
 if [ $failures -eq 0 ]; then echo "bbs-link checks passed."; else echo "$failures bbs-link check(s) failed."; fi
